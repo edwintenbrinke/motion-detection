@@ -2,9 +2,12 @@
 
 namespace App\Entity;
 
-use App\Enum\MotionDetectedTypeEnum;
+use App\DTO\MotionDetectedFileInputDTO;
+use App\Enum\MotionDetectedFileTypeEnum;
 use App\Repository\MotionDetectedFileRepository;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Validator\Constraints as Assert;
+use App\Validator\Constraints as CustomAssert;
 
 #[ORM\Entity(repositoryClass: MotionDetectedFileRepository::class)]
 class MotionDetectedFile
@@ -15,19 +18,42 @@ class MotionDetectedFile
     private ?int $id = null;
 
     #[ORM\Column]
+    #[Assert\NotBlank(message: 'File name cannot be blank')]
     private string $file_name;
 
     #[ORM\Column]
+    #[Assert\NotBlank(message: 'File path cannot be blank')]
     private string $file_path;
 
-    #[ORM\Column(enumType: MotionDetectedTypeEnum::class)]
-    private MotionDetectedTypeEnum $type;
+    #[ORM\Column(enumType: MotionDetectedFileTypeEnum::class)]
+    #[Assert\NotBlank(message: 'Type cannot be blank')]
+//    #[Assert\Choice(callback: [MotionDetectedFileTypeEnum::class, 'values'])]
+    private MotionDetectedFileTypeEnum $type;
 
     #[ORM\Column]
     private \DateTimeImmutable $created_at;
 
     #[ORM\Column]
     private \DateTimeImmutable $updated_at;
+
+    public function __construct(string $file_name, string $file_path, MotionDetectedFileTypeEnum $type)
+    {
+        $this->file_name = $file_name;
+        $this->file_path = $file_path;
+        $this->type = $type;
+        $this->created_at = new \DateTimeImmutable();
+        $this->updated_at = new \DateTimeImmutable();
+        return $this;
+    }
+
+    public static function createFromDTO(MotionDetectedFileInputDTO $input_dto): self
+    {
+        return new self(
+            $input_dto->file_name,
+            $input_dto->file_path,
+            MotionDetectedFileTypeEnum::getEnum($input_dto->type)
+        );
+    }
 
     public function getId(): ?int
     {
@@ -58,12 +84,12 @@ class MotionDetectedFile
         return $this;
     }
 
-    public function getType(): ?MotionDetectedTypeEnum
+    public function getType(): ?MotionDetectedFileTypeEnum
     {
         return $this->type;
     }
 
-    public function setType(MotionDetectedTypeEnum $type): static
+    public function setType(MotionDetectedFileTypeEnum $type): static
     {
         $this->type = $type;
 
@@ -75,22 +101,8 @@ class MotionDetectedFile
         return $this->created_at;
     }
 
-    public function setCreatedAt(\DateTimeImmutable $created_at): static
-    {
-        $this->created_at = $created_at;
-
-        return $this;
-    }
-
     public function getUpdatedAt(): ?\DateTimeImmutable
     {
         return $this->updated_at;
-    }
-
-    public function setUpdatedAt(\DateTimeImmutable $updated_at): static
-    {
-        $this->updated_at = $updated_at;
-
-        return $this;
     }
 }

@@ -26,4 +26,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . /app
 
 # Default command
-CMD ["python", "save_livestream.py"]
+#CMD ["python", "save_livestream.py"]

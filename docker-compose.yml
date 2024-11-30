@@ -1,6 +1,9 @@
 services:
   app:
     image: php:8.4-fpm
+    build:
+      context: ./api  # Directory containing the Dockerfile
+      dockerfile: Dockerfile  # Name of your Dockerfile (optional if named 'Dockerfile')
     container_name: symfony_app
     working_dir: /var/www/symfony
     volumes:
@@ -60,7 +63,7 @@ services:
     working_dir: /app
     volumes:
       - ./python:/app
-    command: ["python", "save_livestream.py"]
+#    command: ["python", "save_livestream.py"]
     logging:
       driver: "json-file"
       options:
