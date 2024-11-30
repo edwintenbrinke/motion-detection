@@ -1,0 +1,38 @@
+{
+    email your-email@example.com
+}
+
+:80 {
+    root * /var/www/symfony/public
+    encode gzip zstd
+
+    php_fastcgi app:9000
+
+    file_server
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "geolocation=(), microphone=(), camera=()"
+    }
+
+    @rewrite_missing {
+        file {
+            try_files {path} {path}/public/index.php
+        }
+    }
+
+    rewrite @rewrite_missing /index.php
+
+    log {
+        output stdout
+        format json
+    }
+
+    handle_errors {
+        rewrite * /index.php
+        php_fastcgi app:9000
+    }
+}

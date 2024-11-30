@@ -1,0 +1,87 @@
+services:
+  app:
+    image: php:8.4-fpm
+    container_name: symfony_app
+    working_dir: /var/www/symfony
+    volumes:
+      - ./api:/var/www/symfony
+      - ./docker/php/php.ini:/usr/local/etc/php/php.ini
+    environment:
+      - APP_ENV=dev
+      - COMPOSER_ALLOW_SUPERUSER=1
+    depends_on:
+      - db
+      - redis
+    networks:
+      - symfony_network
+
+  caddy:
+    image: caddy:latest
+    container_name: symfony_caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./api:/var/www/symfony
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile
+    depends_on:
+      - app
+    networks:
+      - symfony_network
+
+  db:
+    image: mysql:8.0
+    container_name: symfony_db
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: symfony
+      MYSQL_USER: symfony
+      MYSQL_PASSWORD: symfony
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - symfony_network
+
+  redis:
+    image: redis:alpine
+    container_name: symfony_redis
+    ports:
+      - "6379:6379"
+    networks:
+      - symfony_network
+
+  python:
+    image: python:3.11
+    container_name: python_script
+    working_dir: /app
+    volumes:
+      - ./python:/app
+    command: ["python", "save_livestream.py"]
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - symfony_network
+
+  vue:
+    image: node:22
+    container_name: vue_frontend
+    working_dir: /app
+    volumes:
+      - ./web:/app
+    ports:
+      - "3000:3000"
+    command: npm run serve
+    networks:
+      - symfony_network
+
+volumes:
+  db_data:
+
+networks:
+  symfony_network:
+    driver: bridge
