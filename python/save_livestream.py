@@ -10,7 +10,7 @@ from threading import Thread
 # Set the directory where files will be saved
 SAVE_DIRECTORY = './recordings'
 DAYS_TO_KEEP = 7
-BUFFER_DURATION = 30
+BUFFER_DURATION = 10
 MOTION_THRESHOLD = 5000
 PIXEL_THRESHOLD = 20
 BLUR_SIZE = (5, 5)
@@ -41,7 +41,8 @@ class FrameGrabber:
                 if ret:
                     self.q.put(frame)
                 else:
-                    self.stop()
+                    print("Corrupt frame detected. Skipping...")
+                    continue
             else:
                 time.sleep(0.001)  # Short sleep to prevent CPU overload
 
@@ -147,15 +148,11 @@ def main():
             if current_time - last_cleanup_time > 24 * 3600:
                 delete_old_files()
                 last_cleanup_time = current_time
-            
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
-                
+
     finally:
         grabber.stop()
         if out:
             out.release()
-        cv2.destroyAllWindows()
 
 if __name__ == "__main__":
     main()

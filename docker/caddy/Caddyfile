@@ -20,7 +20,7 @@
 
     @rewrite_missing {
         file {
-            try_files {path} {path}/public/index.php
+            try_files {path} {path}/index.php
         }
     }
 

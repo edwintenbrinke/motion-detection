@@ -52,8 +52,10 @@ services:
     networks:
       - symfony_network
 
-  python:
-    image: python:3.11
+  python_script:
+    build:
+      context: ./python  # Directory containing the Dockerfile
+      dockerfile: Dockerfile  # Name of your Dockerfile (optional if named 'Dockerfile')
     container_name: python_script
     working_dir: /app
     volumes:
