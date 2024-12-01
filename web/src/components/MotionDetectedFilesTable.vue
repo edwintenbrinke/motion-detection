@@ -5,7 +5,6 @@
         Motion Detected Files
       </v-card-title>
       <v-card-text>
-
         <v-data-table-server
           v-model:items-per-page="pagination.itemsPerPage"
           :headers="headers"
@@ -48,7 +47,7 @@ export default {
 
       try {
         const { currentPage, itemsPerPage } = this.pagination;
-        const response = await this.$api.get("/api/motion-detected-file", {
+        const response = await this.$api.get("/api/motion-detected-file/table", {
           params: {
             page: currentPage,
             itemsPerPage,

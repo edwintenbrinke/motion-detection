@@ -28,11 +28,15 @@ class PaginationService
      * @param $search
      * @return PaginatedResponseDTO
      */
-    public static function paginateQueryBuilder(QueryBuilder $query_builder, int $page, int $items_per_page): PaginatedResponseDTO
+    public static function paginateQueryBuilder(QueryBuilder $query_builder, int $page, ?int $items_per_page = null): PaginatedResponseDTO
     {
         $query_builder
-            ->setFirstResult(($page - 1) * $items_per_page)
-            ->setMaxResults($items_per_page);
+            ->setFirstResult(($page - 1) * $items_per_page);
+
+        if (null !== $items_per_page)
+        {
+            $query_builder->setMaxResults($items_per_page);
+        }
 
         $results = $query_builder->getQuery()->getResult();
         $aliases = $query_builder->getAllAliases();

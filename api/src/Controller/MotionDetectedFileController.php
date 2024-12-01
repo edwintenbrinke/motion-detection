@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controller;
 
 use App\DTO\MotionDetectedFileInputDTO;
+use App\DTO\MotionDetectedFileOutput2DTO;
 use App\DTO\MotionDetectedFileOutputDTO;
 use App\Entity\MotionDetectedFile;
 use App\Repository\MotionDetectedFileRepository;
@@ -15,13 +16,14 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 
-#[Route('/api')]
+#[Route('/api/motion-detected-file')]
 class MotionDetectedFileController extends AbstractController
 {
     use ValidationTrait;
-    #[Route('/motion-detected-file', name: 'api_motion_detected_file_post', methods: ['POST'])]
+    #[Route('/', name: 'api_motion_detected_file_post', methods: ['POST'])]
     public function createAction(Request $request, EntityManagerInterface $entity_manager): Response
     {
         /** @var MotionDetectedFileInputDTO $motion_detected_file_dto */
@@ -40,16 +42,37 @@ class MotionDetectedFileController extends AbstractController
         ]);
     }
 
-    #[Route('/motion-detected-file', name: 'api_motion_detected_file_get', methods: ['GET'])]
-    public function getAction(Request $request, MotionDetectedFileRepository $detected_file_repo, PaginationService $service): Response
+    #[Route('/table', name: 'api_motion_detected_file_get_table', methods: ['GET'])]
+    public function getTableAction(Request $request, MotionDetectedFileRepository $detected_file_repo, PaginationService $service): Response
     {
         $page = (int)($request->query->get('page', 1));
         $items_per_page = (int)($request->query->get('itemsPerPage', 10));
         $search = $request->query->get('search', '');
 
         return $service->returnPaginatedSerializedResponse(
-            $detected_file_repo->returnPaginated($page, $items_per_page),
+            $detected_file_repo->returnPaginatedTable($page, $items_per_page),
             MotionDetectedFileOutputDTO::class
         );
+    }
+
+    #[Route('/calendar', name: 'api_motion_detected_file_get_calendar', methods: ['GET'])]
+    public function getCalendarAction(Request $request, MotionDetectedFileRepository $detected_file_repo): Response
+    {
+        $start_date = (string)($request->query->get('startDate'));
+        $end_date = (string)($request->query->get('endDate'));
+
+        if (!isset($start_date) || !isset($end_date))
+        {
+            throw new BadRequestHttpException();
+        }
+
+        $data = $detected_file_repo->returnPaginatedCalendar(new \DateTime($start_date), new \DateTime($end_date));
+        $result = [];
+        foreach ($data as $datum) {
+            $serializedData = $this->serializer->normalize($datum);
+            $userDTO = $this->serializer->denormalize($serializedData, MotionDetectedFileOutput2DTO::class);
+            $result[] = $userDTO;
+        }
+        return $this->json($result);
     }
 }

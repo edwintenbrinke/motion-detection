@@ -36,12 +36,12 @@ class MotionDetectedFile
     #[ORM\Column]
     private \DateTimeImmutable $updated_at;
 
-    public function __construct(string $file_name, string $file_path, MotionDetectedFileTypeEnum $type)
+    public function __construct(string $file_name, string $file_path, MotionDetectedFileTypeEnum $type, ?\DateTimeImmutable $created_at = null)
     {
         $this->file_name = $file_name;
         $this->file_path = $file_path;
         $this->type = $type;
-        $this->created_at = new \DateTimeImmutable();
+        $this->created_at = $created_at ?? new \DateTimeImmutable();
         $this->updated_at = new \DateTimeImmutable();
         return $this;
     }

@@ -19,10 +19,20 @@ class MotionDetectedFileRepository extends ServiceEntityRepository
         parent::__construct($registry, MotionDetectedFile::class);
     }
 
-    public function returnPaginated(int $page, int $limit): PaginatedResponseDTO
+    public function returnPaginatedTable(int $page, int $limit): PaginatedResponseDTO
     {
         $query_builder = $this->createQueryBuilder('m')
             ->select('m');
         return PaginationService::paginateQueryBuilder($query_builder, $page, $limit);
+    }
+
+    public function returnPaginatedCalendar(\DateTime $start_time, \DateTime $end_time): array
+    {
+        $query_builder = $this->createQueryBuilder('m')
+            ->select('m')
+            ->where('m.created_at >= :start_time AND m.created_at <= :end_time')
+            ->setParameter('start_time', $start_time)
+            ->setParameter('end_time', $end_time);
+        return $query_builder->getQuery()->getResult();
     }
 }
