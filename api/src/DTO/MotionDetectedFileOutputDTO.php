@@ -12,7 +12,15 @@ class MotionDetectedFileOutputDTO
 
     public string $file_path;
 
-    public int $type;
+    public MotionDetectedFileTypeEnum $type;
 
     public \DateTimeImmutable $created_at;
+
+    public function __construct(string $file_name, string $file_path, MotionDetectedFileTypeEnum $type, \DateTimeImmutable $created_at)
+    {
+        $this->file_name = $file_name;
+        $this->file_path = $file_path;
+        $this->type = $type;
+        $this->created_at = $created_at;
+    }
 }

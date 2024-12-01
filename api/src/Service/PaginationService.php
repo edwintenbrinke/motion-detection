@@ -37,7 +37,11 @@ class PaginationService
         $results = $query_builder->getQuery()->getResult();
         $aliases = $query_builder->getAllAliases();
 
-        $totalItems = $query_builder->select(sprintf('COUNT(%s.id)', $aliases[0]))->getQuery()->getSingleScalarResult();
+        $totalItems = $query_builder
+            ->select(sprintf('COUNT(%s.id)', $aliases[0]))
+            ->setFirstResult(0)
+            ->getQuery()
+            ->getSingleScalarResult();
 
         $paginatedResponse = new PaginatedResponseDTO();
         $paginatedResponse->setData($results);
@@ -48,52 +52,60 @@ class PaginationService
         return $paginatedResponse;
     }
 
+    private function transformEntityToDTO(object $entity, string $dtoClass): object
+    {
+        $reflectionClass = new \ReflectionClass($dtoClass);
+
+        $constructor = $reflectionClass->getConstructor();
+        if (!$constructor) {
+            throw new \InvalidArgumentException("The class $dtoClass must have a constructor.");
+        }
+
+        $parameters = $constructor->getParameters();
+        $constructorArgs = [];
+
+        foreach ($parameters as $parameter) {
+            $name = $parameter->getName();
+            $camelCaseName = $this->snakeToCamelCase($name);
+            $getter = 'get' . ucfirst($camelCaseName);
+
+            if (!method_exists($entity, $getter)) {
+                throw new \InvalidArgumentException(
+                    "The entity class " . get_class($entity) . " must have a method $getter to map to $dtoClass::$name."
+                );
+            }
+
+            $constructorArgs[] = $entity->$getter();
+        }
+
+        return $reflectionClass->newInstanceArgs($constructorArgs);
+    }
+
+    private function snakeToCamelCase(string $snakeCase): string
+    {
+        return lcfirst(str_replace(' ', '', ucwords(str_replace('_', ' ', $snakeCase))));
+    }
+
     public function returnPaginatedSerializedResponse(PaginatedResponseDTO $paginated_response_dto, string $output_data_dto_class, string $format = 'json')
     {
-//        $data_dto = [];
-//        foreach ($paginated_response_dto->getData() as $result)
-//        {
-//            // Normalize the entity to an array using ObjectNormalizer
-//            $objectNormalizer = new ObjectNormalizer();
-//            $normalizedArray = $objectNormalizer->normalize($result);
-//
-//// Generate mapping dynamically based on the DTO class and source data
-//            $propertyMapping = $this->createPropertyMapping($output_data_dto_class, $normalizedArray);
-//
-//// Create a new DTO instance and populate it
-//            $normalizedData = $this->serializer->normalize($normalizedArray, null, [
-//                AbstractNormalizer::OBJECT_TO_POPULATE => new $output_data_dto_class(),
-//                AbstractNormalizer::ATTRIBUTES => $propertyMapping
-//            ]);
-//
-//            dd( $normalizedData, $this->serializer->normalize($result, null, [
-//                AbstractNormalizer::OBJECT_TO_POPULATE => new $output_data_dto_class(),
-//            ]));
-//            $data_dto[] = $output_data_class;
-//        }
+        $data = $paginated_response_dto->getData();
+        $transformedData = [];
+
+        foreach ($data as $entity) {
+            $transformedData[] = $this->transformEntityToDTO($entity, $output_data_dto_class);
+        }
+
+        $response = [
+            'data' => $transformedData,
+            'total' => $paginated_response_dto->getTotal(),
+            'currentPage' => $paginated_response_dto->getCurrentPage(),
+            'itemsPerPage' => $paginated_response_dto->getItemsPerPage(),
+        ];
 
         return new Response(
-            $this->serializer->serialize($paginated_response_dto, $format),
+            $this->serializer->serialize($response, $format),
             Response::HTTP_OK,
             ['Content-Type' => 'Application/json']
         );
-    }
-
-    function createPropertyMapping(string $dtoClass, array $sourceData): array {
-        $reflection = new ReflectionClass($dtoClass);
-        $dtoProperties = $reflection->getProperties(); // Get properties of the DTO class
-
-        $mapping = [];
-        foreach ($dtoProperties as $property) {
-            $propertyName = $property->getName();
-            $camelCaseName = lcfirst(implode('', array_map('ucfirst', explode('_', $propertyName))));
-
-            // Check if the source data contains a matching property name
-            if (array_key_exists($camelCaseName, $sourceData)) {
-                $mapping[$propertyName] = $camelCaseName;
-            }
-        }
-
-        return $mapping;
     }
 }
