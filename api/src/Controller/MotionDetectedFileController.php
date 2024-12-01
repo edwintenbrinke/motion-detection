@@ -20,30 +20,28 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 class MotionDetectedFileController extends AbstractController
 {
     use ValidationTrait;
-    #[Route('/motion-detected-file', name: 'api_motion_detected_file', methods: ['POST'])]
-    public function index(Request $request, EntityManagerInterface $entity_manager): Response
+    #[Route('/motion-detected-file', name: 'api_motion_detected_file_post', methods: ['POST'])]
+    public function createAction(Request $request, EntityManagerInterface $entity_manager): Response
     {
-
-        try {
-            $conn = $entity_manager->getConnection();
-            $conn->connect();
-            echo "Connection successful!";
-        } catch (\Exception $e) {
-            echo "Connection failed: " . $e->getMessage();
-        }
-
-        dd(1);
         /** @var MotionDetectedFileInputDTO $motion_detected_file_dto */
         $motion_detected_file_dto = $this->validateRequest($request, MotionDetectedFileInputDTO::class);
         if ($motion_detected_file_dto instanceof Response)
         {
             return $motion_detected_file_dto;
         }
-dd($motion_detected_file_dto);
+
         $motion_detected_file = MotionDetectedFile::createFromDTO($motion_detected_file_dto);
         $entity_manager->persist($motion_detected_file);
         $entity_manager->flush();
-        // post here with file name & meta data ( size / type etc )
+
+        return new JsonResponse([
+            'message' => 'Motion detection file created successfully',
+        ]);
+    }
+
+    #[Route('/motion-detected-file', name: 'api_motion_detected_file_get', methods: ['GET'])]
+    public function getAction(Request $request, EntityManagerInterface $entity_manager): Response
+    {
         return new JsonResponse([
             'message' => 'Motion detection file created successfully',
         ]);
