@@ -1,6 +1,5 @@
 services:
   app:
-    image: php:8.4-fpm
     build:
       context: ./api  # Directory containing the Dockerfile
       dockerfile: Dockerfile  # Name of your Dockerfile (optional if named 'Dockerfile')
@@ -73,16 +72,20 @@ services:
       - symfony_network
 
   vue:
-    image: node:22
+    build:
+      context: ./web  # Directory containing the Dockerfile
+      dockerfile: Dockerfile
     container_name: vue_frontend
     working_dir: /app
     volumes:
-      - ./web:/app
+      - ./web:/app  # Mount local code directory
+      - /app/node_modules  # Preserve container's node_modules
     ports:
       - "3000:3000"
-    command: npm run serve
     networks:
       - symfony_network
+    command: npm run dev -- --host 0.0.0.0
+
 
 volumes:
   db_data:

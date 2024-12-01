@@ -2,9 +2,12 @@
 
 namespace App\Repository;
 
+use App\DTO\PaginatedResponseDTO;
 use App\Entity\MotionDetectedFile;
+use App\Service\PaginationService;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Component\HttpFoundation\Request;
 
 /**
  * @extends ServiceEntityRepository<MotionDetectedFile>
@@ -16,28 +19,10 @@ class MotionDetectedFileRepository extends ServiceEntityRepository
         parent::__construct($registry, MotionDetectedFile::class);
     }
 
-    //    /**
-    //     * @return MotionDetectedFile[] Returns an array of MotionDetectedFile objects
-    //     */
-    //    public function findByExampleField($value): array
-    //    {
-    //        return $this->createQueryBuilder('m')
-    //            ->andWhere('m.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->orderBy('m.id', 'ASC')
-    //            ->setMaxResults(10)
-    //            ->getQuery()
-    //            ->getResult()
-    //        ;
-    //    }
-
-    //    public function findOneBySomeField($value): ?MotionDetectedFile
-    //    {
-    //        return $this->createQueryBuilder('m')
-    //            ->andWhere('m.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->getQuery()
-    //            ->getOneOrNullResult()
-    //        ;
-    //    }
+    public function returnPaginated(int $page, int $limit): PaginatedResponseDTO
+    {
+        $query_builder = $this->createQueryBuilder('m')
+            ->select('m');
+        return PaginationService::paginateQueryBuilder($query_builder, $page, $limit);
+    }
 }

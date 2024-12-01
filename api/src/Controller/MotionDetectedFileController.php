@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace App\Controller;
 
 use App\DTO\MotionDetectedFileInputDTO;
+use App\DTO\MotionDetectedFileOutputDTO;
 use App\Entity\MotionDetectedFile;
+use App\Repository\MotionDetectedFileRepository;
+use App\Service\PaginationService;
 use App\Trait\ValidationTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -40,10 +43,15 @@ class MotionDetectedFileController extends AbstractController
     }
 
     #[Route('/motion-detected-file', name: 'api_motion_detected_file_get', methods: ['GET'])]
-    public function getAction(Request $request, EntityManagerInterface $entity_manager): Response
+    public function getAction(Request $request, MotionDetectedFileRepository $detected_file_repo, PaginationService $service): Response
     {
-        return new JsonResponse([
-            'message' => 'Motion detection file created successfully',
-        ]);
+        $page = (int)($request->query->get('page', 1));
+        $items_per_page = (int)($request->query->get('itemsPerPage', 10));
+        $search = $request->query->get('search', '');
+
+        return $service->returnPaginatedSerializedResponse(
+            $detected_file_repo->returnPaginated($page, $items_per_page),
+            MotionDetectedFileOutputDTO::class
+        );
     }
 }
