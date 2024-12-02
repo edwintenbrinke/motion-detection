@@ -7,22 +7,27 @@
       <v-card-text>
         <v-data-table-server
           v-model:items-per-page="pagination.itemsPerPage"
+          v-model:page="pagination.currentPage"
           :headers="headers"
           :items="items"
           :items-length="pagination.total"
           :loading="loading"
           item-value="file_name"
           :items-per-page-options="itemsPerPageOptions"
-          @update:options="fetchData"
         ></v-data-table-server>
       </v-card-text>
     </v-card>
+
+    <VideoPlayer video-id="test2.mp4" />
   </v-container>
 </template>
 
 <script>
+import VideoPlayer from "@/components/VideoPlayer.vue";
+
 export default {
   name: "MotionDetectedFilesTable",
+  components: {VideoPlayer},
   data() {
     return {
       headers: [

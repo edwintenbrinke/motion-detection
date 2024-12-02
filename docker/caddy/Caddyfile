@@ -1,7 +1,3 @@
-{
-    email your-email@example.com
-}
-
 :80 {
     root * /var/www/symfony/public
     encode gzip zstd
@@ -10,13 +6,29 @@
 
     file_server
 
-    header {
+    # Specific configuration for video recordings
+    @recordings path /recordings/*
+    header @recordings {
+        # CORS headers for video streaming
+        Access-Control-Allow-Origin "*"
+        Access-Control-Allow-Methods "GET, HEAD, OPTIONS"
+        Access-Control-Allow-Headers "Range, Content-Type"
+
+        # Caching and performance headers for video
+        Cache-Control "public, max-age=86400"
+
+        # Security headers for video routes
         Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
         X-Content-Type-Options "nosniff"
         X-Frame-Options "DENY"
         Referrer-Policy "strict-origin-when-cross-origin"
         Permissions-Policy "geolocation=(), microphone=(), camera=()"
     }
+
+    # Route recordings through PHP fastcgi
+    reverse_proxy @recordings php_fastcgi
+
+    file_server
 
     @rewrite_missing {
         file {
@@ -29,6 +41,7 @@
     log {
         output stdout
         format json
+        level DEBUG
     }
 
     handle_errors {

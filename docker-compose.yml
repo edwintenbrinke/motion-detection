@@ -1,12 +1,13 @@
 services:
   app:
     build:
-      context: ./api  # Directory containing the Dockerfile
-      dockerfile: Dockerfile  # Name of your Dockerfile (optional if named 'Dockerfile')
+      context: ./api
+      dockerfile: Dockerfile
     container_name: symfony_app
     working_dir: /var/www/symfony
     volumes:
       - ./api:/var/www/symfony
+      - ./python/recordings:/var/www/python/recordings
       - ./docker/php/php.ini:/usr/local/etc/php/php.ini
     environment:
       - APP_ENV=dev
@@ -56,13 +57,13 @@ services:
 
   python_script:
     build:
-      context: ./python  # Directory containing the Dockerfile
-      dockerfile: Dockerfile  # Name of your Dockerfile (optional if named 'Dockerfile')
+      context: ./python
+      dockerfile: Dockerfile
     container_name: python_script
     working_dir: /app
     volumes:
       - ./python:/app
-#    command: ["python", "save_livestream.py"]
+      - ./python/recordings:/app/recordings  # Mount the recordings folder directly
     logging:
       driver: "json-file"
       options:
@@ -73,19 +74,18 @@ services:
 
   vue:
     build:
-      context: ./web  # Directory containing the Dockerfile
+      context: ./web
       dockerfile: Dockerfile
     container_name: vue_frontend
     working_dir: /app
     volumes:
-      - ./web:/app  # Mount local code directory
-      - /app/node_modules  # Preserve container's node_modules
+      - ./web:/app
+      - /app/node_modules
     ports:
       - "3000:3000"
     networks:
       - symfony_network
     command: npm run dev -- --host 0.0.0.0
-
 
 volumes:
   db_data:
