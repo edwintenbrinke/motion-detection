@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Entity\MotionDetectedFile;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\File\File;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\HttpFoundation\Request;
@@ -13,10 +17,34 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class RecordingsController extends AbstractController
 {
-    #[Route('/recordings/{filename}', name: 'stream_recording')]
-    public function getRecording(string $filename, Request $request): Response
+    #[Route('/api/upload-video', name: 'api_upload_video', methods: ['POST'])]
+    public function uploadVideo(Request $request, string $public_recordings_folder): Response
     {
-        $filePath = sprintf('%s/public/recordings/%s', $this->getParameter('kernel.project_dir'), $filename);
+        if (!$request->files->has('file'))
+        {
+            return new JsonResponse([
+                'message' => 'No file uploaded'
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        /** @var UploadedFile $file */
+        $file = $request->files->get('file');
+//        $filePath = sprintf('%s/%s', $public_recordings_folder, $file->getClientOriginalName());
+        $file->move($public_recordings_folder, $file->getClientOriginalName());
+
+        // get filename
+        // get path that it'll save dat
+
+        // create entity
+//        $motion_detected_file = MotionDetectedFile::createFromDTO($motion_detected_file_dto);
+//        $entity_manager->persist($motion_detected_file);
+//        $entity_manager->flush();
+    }
+
+    #[Route('/recordings/{filename}', name: 'stream_recording')]
+    public function getRecording(string $filename, Request $request, string $public_recordings_folder): Response
+    {
+        $filePath = sprintf('%s/%s', $public_recordings_folder, $filename);
 
         // Detailed file validation
         if (!file_exists($filePath)) {

@@ -16,6 +16,5 @@ class MotionDetectedFileInputDTO
 
     #[Assert\NotBlank(message: 'Type cannot be blank')]
     #[Assert\Choice(callback: [MotionDetectedFileTypeEnum::class, 'getValues'])]
-//    #[Assert\Choice(callback: [MotionDetectedFileTypeEnum::class, 'values'])]
     public int $type;
 }

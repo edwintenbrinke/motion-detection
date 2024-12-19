@@ -1,49 +1,74 @@
+# Global Caddy options
+{
+    email your-email@example.com
+}
+
+# Redirect HTTP to HTTPS
 :80 {
+    redir https://{host}{uri} permanent
+}
+
+# HTTPS Configuration
+:443 {
+    # Root Symfony public directory
     root * /var/www/symfony/public
+
+    # Compression
     encode gzip zstd
 
-    php_fastcgi app:9000
+    # PHP FastCGI configuration
+    php_fastcgi app:9000 {
+        # Increase timeouts for large file uploads
+        read_timeout 300s
+        write_timeout 300s
+    }
 
-    file_server
-
-    # Specific configuration for video recordings
-    @recordings path /recordings/*
-    header @recordings {
-        # CORS headers for video streaming
-        Access-Control-Allow-Origin "*"
-        Access-Control-Allow-Methods "GET, HEAD, OPTIONS"
-        Access-Control-Allow-Headers "Range, Content-Type"
-
-        # Caching and performance headers for video
-        Cache-Control "public, max-age=86400"
-
-        # Security headers for video routes
+    # Security headers for all routes
+    header {
         Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
         X-Content-Type-Options "nosniff"
         X-Frame-Options "DENY"
+        X-XSS-Protection "1; mode=block"
         Referrer-Policy "strict-origin-when-cross-origin"
         Permissions-Policy "geolocation=(), microphone=(), camera=()"
+        Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'"
     }
 
-    # Route recordings through PHP fastcgi
-    reverse_proxy @recordings php_fastcgi
+    # CORS configuration for API routes
+    header /api/* {
+        Access-Control-Allow-Origin "*"
+        Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+        Access-Control-Allow-Headers "Content-Type, Authorization, Range"
+        Access-Control-Max-Age "86400"
+    }
 
-    file_server
-
-    @rewrite_missing {
-        file {
-            try_files {path} {path}/index.php
+    # Video upload route specific configuration
+    route /api/upload-video {
+        # Longer timeout for video uploads
+        request_body {
+            max_size 1GB  # Adjust based on your max video size
         }
     }
 
-    rewrite @rewrite_missing /index.php
+    # Specific configuration for video recordings
+    route /recordings/* {
+        header Cache-Control "public, max-age=86400"
+    }
 
+    # Routing for Symfony
+    try_files {path} {path}/index.php =404
+
+    # Default PHP handling
+    rewrite * /index.php
+
+    # Logging
     log {
         output stdout
         format json
-        level DEBUG
+        level INFO
     }
 
+    # Error handling
     handle_errors {
         rewrite * /index.php
         php_fastcgi app:9000

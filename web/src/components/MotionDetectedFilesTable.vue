@@ -14,11 +14,12 @@
           :loading="loading"
           item-value="file_name"
           :items-per-page-options="itemsPerPageOptions"
+          @click:row="onRowClick"
         ></v-data-table-server>
       </v-card-text>
     </v-card>
 
-    <VideoPlayer video-id="test2.mp4" />
+    <VideoPlayer :video-id="selectedVideoId" />
   </v-container>
 </template>
 
@@ -27,7 +28,7 @@ import VideoPlayer from "@/components/VideoPlayer.vue";
 
 export default {
   name: "MotionDetectedFilesTable",
-  components: {VideoPlayer},
+  components: { VideoPlayer },
   data() {
     return {
       headers: [
@@ -37,13 +38,14 @@ export default {
         { text: "Detected At", value: "created_at" },
       ],
       items: [],
-      itemsPerPageOptions: [1,5,10],
+      itemsPerPageOptions: [1, 5, 10],
       pagination: {
         total: 0,
         currentPage: 1,
         itemsPerPage: 1,
       },
       loading: false,
+      selectedVideoId: "test2.mp4", // Default video ID
     };
   },
   methods: {
@@ -71,8 +73,8 @@ export default {
         this.loading = false;
       }
     },
-    formatDate(dateString) {
-      return new Date(dateString).toLocaleString();
+    onRowClick(clickEvent, row) {
+      this.selectedVideoId = row.item.file_name; // Update the video ID with the clicked row's file name
     },
   },
   watch: {
