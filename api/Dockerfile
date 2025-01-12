@@ -4,7 +4,7 @@ FROM php:8.4-fpm
 # Set the working directory in the container
 WORKDIR /var/www/symfony
 
-# Install system dependencies and PHP extensions
+# Install system dependencies and PHP extensions, including FFmpeg
 RUN apt-get update && apt-get install -y \
     libpng-dev \
     libjpeg-dev \
@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install -y \
     libzip-dev \
     libpq-dev \
     unzip \
+    ffmpeg \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install gd pdo pdo_mysql pdo_pgsql zip \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
@@ -19,8 +20,9 @@ RUN apt-get update && apt-get install -y \
 # Install Composer globally
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Copy the custom PHP configuration file into the container
-#COPY ../docker/php/php.ini /usr/local/etc/php/php.ini
+# Install Symfony Process component (you can also install this via Composer later)
+RUN curl -sS https://get.symfony.com/cli/installer | bash -s -- --install-dir=/usr/local/bin
+RUN chmod +x /usr/local/bin/symfony
 
 # Expose the port for the PHP-FPM server
 EXPOSE 9000

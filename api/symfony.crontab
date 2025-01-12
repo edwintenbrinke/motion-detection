@@ -1,0 +1,3 @@
+# Run Symfony Messenger async queue every 5 minutes
+*/5 * * * * php /var/www/symfony/bin/console messenger:consume async --time-limit=300 --memory-limit=200M >> /var/log/cron.log 2>&1
+

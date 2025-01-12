@@ -38,11 +38,11 @@ export default {
         { text: "Detected At", value: "created_at" },
       ],
       items: [],
-      itemsPerPageOptions: [1, 5, 10],
+      itemsPerPageOptions: [10, 25, 50],
       pagination: {
         total: 0,
         currentPage: 1,
-        itemsPerPage: 1,
+        itemsPerPage: 10,
       },
       loading: false,
       selectedVideoId: "test2.mp4", // Default video ID
@@ -74,6 +74,7 @@ export default {
       }
     },
     onRowClick(clickEvent, row) {
+      console.log(row.item.file_name);
       this.selectedVideoId = row.item.file_name; // Update the video ID with the clicked row's file name
     },
   },

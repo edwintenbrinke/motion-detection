@@ -18,17 +18,54 @@ services:
     networks:
       - symfony_network
 
-  caddy:
-    image: caddy:latest
-    container_name: symfony_caddy
+  symfony_worker:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: symfony_worker
+    working_dir: /var/www/symfony
+    volumes:
+      - ./api:/var/www/symfony
+      - ./python/recordings:/var/www/python/recordings
+      - ./docker/php/php.ini:/usr/local/etc/php/php.ini
+    environment:
+      - APP_ENV=dev
+      - COMPOSER_ALLOW_SUPERUSER=1
+    depends_on:
+      - db
+      - redis
+    networks:
+      - symfony_network
+    command: >
+      sh -c "while true; do 
+        php /var/www/symfony/bin/console messenger:consume async --time-limit=300 --memory-limit=200M;
+        sleep 300;
+      done"
+
+  nginx:
+    image: nginx:latest
+    container_name: symfony_nginx
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - ./api:/var/www/symfony
-      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d  # Include conf.d directory
+      - ./docker/nginx/ssl:/etc/nginx/ssl       # Include SSL certificates
     depends_on:
       - app
+    networks:
+      - symfony_network
+
+
+  certbot:
+    image: certbot/certbot
+    container_name: certbot
+    volumes:
+      - ./docker/nginx/ssl:/etc/letsencrypt
+      - ./docker/nginx/ssl-data:/data/letsencrypt
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do sleep 1 & wait $${!}; done;'"
     networks:
       - symfony_network
 

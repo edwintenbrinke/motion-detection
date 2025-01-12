@@ -6,6 +6,7 @@ use App\DTO\MotionDetectedFileInputDTO;
 use App\Enum\MotionDetectedFileTypeEnum;
 use App\Repository\MotionDetectedFileRepository;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\Validator\Constraints as Assert;
 use App\Validator\Constraints as CustomAssert;
 
@@ -31,6 +32,9 @@ class MotionDetectedFile
     private MotionDetectedFileTypeEnum $type;
 
     #[ORM\Column]
+    private bool $processed = false;
+
+    #[ORM\Column]
     private \DateTimeImmutable $created_at;
 
     #[ORM\Column]
@@ -52,6 +56,15 @@ class MotionDetectedFile
             $input_dto->file_name,
             $input_dto->file_path,
             MotionDetectedFileTypeEnum::getEnum($input_dto->type)
+        );
+    }
+
+    public static function createFromFile(string $file_name, string $file_path): self
+    {
+        return new self(
+            $file_name,
+            $file_path,
+            MotionDetectedFileTypeEnum::normal
         );
     }
 
@@ -84,6 +97,21 @@ class MotionDetectedFile
         return $this;
     }
 
+    public function getFullFilePath(?string $file_name = null): string
+    {
+        $file_name = $file_name ?? $this->file_name;
+        return rtrim($this->file_path, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $file_name;
+    }
+
+    public function getFileNameForMp4(): string
+    {
+        // Get the file info (path, filename, extension)
+        $file_info = pathinfo($this->getFullFilePath());
+
+        // Replace the file extension with .mp4
+        return $file_info['filename'] . '.mp4';
+    }
+
     public function getType(): ?MotionDetectedFileTypeEnum
     {
         return $this->type;
@@ -94,6 +122,16 @@ class MotionDetectedFile
         $this->type = $type;
 
         return $this;
+    }
+
+    public function isProcessed(): bool
+    {
+        return $this->processed;
+    }
+
+    public function setProcessed(bool $processed): void
+    {
+        $this->processed = $processed;
     }
 
     public function getCreatedAt(): ?\DateTimeImmutable

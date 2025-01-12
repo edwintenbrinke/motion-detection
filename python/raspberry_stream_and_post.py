@@ -2,6 +2,7 @@ from picamera2 import Picamera2, Preview
 from picamera2.encoders import H264Encoder
 from picamera2.outputs import FileOutput
 from flask import Flask, Response, jsonify, render_template
+from datetime import datetime
 import cv2
 import io
 import logging
@@ -24,9 +25,8 @@ CONFIGS = {
 }
 
 # Motion detection parameters
-MOTION_THRESHOLD = 1000  # Amount of pixel change to trigger motion
-MOTION_COOLDOWN = 5      # Seconds to wait before allowing new recording
-NO_MOTION_DURATION = 3   # Seconds to wait for motion to stop recording
+MOTION_THRESHOLD = 1000      # Amount of pixel change to trigger motion
+RECORDING_EXTENSION = 5      # Seconds to extend recording when motion is detected
 MAX_RECORDING_DURATION = 60  # Maximum recording duration in seconds
 
 # Global variables
@@ -42,13 +42,14 @@ motion_state = {
     'recording': False,
     'last_motion_time': 0,
     'recording_start_time': 0,
-    'last_recording_time': 0,
+    'scheduled_stop_time': 0,
     'output_file': None,
     'encoder': None
 }
 
 # API endpoint
-API_ENDPOINT = "http://192.168.1.130/api/upload-video"
+API_ENDPOINT = "https://192.168.1.130/api/video/upload"
+
 def initialize_camera():
     global picam2
     try:
@@ -137,25 +138,25 @@ def detect_motion(current_frame, prev_frame):
     thresh = cv2.threshold(delta_frame, 25, 255, cv2.THRESH_BINARY)[1]
     motion_score = cv2.countNonZero(thresh)
 
-    # Motion detection logic with cooldown and max recording duration
+    # Motion detection logic
     if motion_score > MOTION_THRESHOLD:
-        # Check if enough time has passed since last recording
-        if (not motion_state['recording'] and
-            current_time - motion_state['last_recording_time'] >= MOTION_COOLDOWN):
-            start_recording()
-
-        # Update last motion time
-        motion_state['last_motion_time'] = current_time
         motion_state['detected'] = True
 
-    # Check for recording stop conditions
-    if motion_state['recording']:
-        # Stop recording if no motion for specified duration
-        if current_time - motion_state['last_motion_time'] > NO_MOTION_DURATION:
-            stop_recording_and_post()
+        if not motion_state['recording']:
+            # Start new recording
+            start_recording()
+        else:
+            # Extend current recording (if it hasn't reached max duration yet)
+            motion_state['scheduled_stop_time'] = current_time + RECORDING_EXTENSION
 
-        # Stop recording if max duration reached
-        if current_time - motion_state['recording_start_time'] > MAX_RECORDING_DURATION:
+        # Check if max duration reached (60 seconds)
+        if current_time - motion_state['recording_start_time'] >= MAX_RECORDING_DURATION:
+            # Stop recording, post the video, and start a new recording
+            stop_recording_and_post()
+            start_recording()
+    elif motion_state['recording']:
+        # Check if we've reached the scheduled stop time
+        if current_time >= motion_state['scheduled_stop_time']:
             stop_recording_and_post()
 
 def start_recording():
@@ -163,7 +164,12 @@ def start_recording():
 
     try:
         current_time = time.time()
-        motion_state['output_file'] = f"motion_{int(current_time)}.h264"
+        # Convert current_time to a human-readable ISO 8601 format
+        motion_state['timestamp'] = datetime.utcfromtimestamp(current_time).strftime('%Y_%m_%dT%H_%M_%S')
+
+        # Use the formatted timestamp for naming files
+        motion_state['output_file'] = f"motion_{motion_state['timestamp']}.h264"
+
         motion_state['encoder'] = H264Encoder()
         picam2.start_encoder(
             motion_state['encoder'],
@@ -171,8 +177,8 @@ def start_recording():
         )
         motion_state['recording'] = True
         motion_state['recording_start_time'] = current_time
-        motion_state['last_recording_time'] = current_time
-        print(f"Started recording: {motion_state['output_file']}")
+        motion_state['scheduled_stop_time'] = current_time + RECORDING_EXTENSION
+        print(f"Started recording: {motion_state['output_file']} at {motion_state['timestamp']}")
     except Exception as e:
         print(f"Error starting recording: {str(e)}")
 
@@ -189,18 +195,28 @@ def stop_recording_and_post():
             motion_state['recording'] = False
             motion_state['detected'] = False
 
-            # Upload video to API
-            print(f"Uploading {output_file} to {API_ENDPOINT}")
-            with open(output_file, 'rb') as file:
-                response = requests.post(API_ENDPOINT, files={"file": file})
-                if response.status_code == 200:
-                    print("File uploaded successfully")
-                    # Remove file after successful upload
-                    os.remove(output_file)
-                else:
-                    print(f"Failed to upload file: {response.status_code}")
+            # Upload video in a separate thread to not block the main process
+            threading.Thread(
+                target=upload_video,
+                args=(output_file,),
+                daemon=True
+            ).start()
         except Exception as e:
             print(f"Error in stop_recording_and_post: {str(e)}")
+
+def upload_video(output_file):
+    try:
+        print(f"Uploading {output_file} to {API_ENDPOINT}")
+        with open(output_file, 'rb') as file:
+            response = requests.post(API_ENDPOINT, files={"file": file}, verify=False)
+            if response.status_code == 200:
+                print("File uploaded successfully")
+                # Remove file after successful upload
+                os.remove(output_file)
+            else:
+                print(f"Failed to upload file: {response.status_code}")
+    except Exception as e:
+        print(f"Error uploading video: {str(e)}")
 
 def start_stream():
     global stream_active

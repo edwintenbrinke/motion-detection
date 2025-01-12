@@ -34,7 +34,7 @@ class MotionDetectedFileFixtures extends Fixture
         );
         $manager->persist($motion_detected_file2);
 
-        for ($i = 0; $i < 1000; ++$i) {
+        for ($i = 0; $i < 10; ++$i) {
             $motion_detected_file = new MotionDetectedFile(
                 "file name $i",
                 "file path $i",

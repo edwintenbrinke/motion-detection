@@ -51,8 +51,27 @@ export default {
       errorMessage: null
     }
   },
+  watch: {
+    videoId: {
+      handler(newId, oldId) {
+        if (newId !== oldId) {
+          // Cleanup old blob URL if it exists
+          if (this.videoUrl) {
+            URL.revokeObjectURL(this.videoUrl)
+          }
+          this.fetchVideoUrl()
+        }
+      }
+    }
+  },
   mounted() {
     this.fetchVideoUrl()
+  },
+  beforeDestroy() {
+    // Cleanup blob URL when component is destroyed
+    if (this.videoUrl) {
+      URL.revokeObjectURL(this.videoUrl)
+    }
   },
   methods: {
     async fetchVideoUrl() {
@@ -63,7 +82,7 @@ export default {
 
       try {
         // Use global $api for the call
-        const response = await this.$api.get(`/recordings/${this.videoId}`, {
+        const response = await this.$api.get(`/api/video/stream/${this.videoId}`, {
           responseType: 'blob', // Ensure we're getting a blob for video
           timeout: 10000 // 10 second timeout
         })
@@ -160,7 +179,11 @@ export default {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 </style>

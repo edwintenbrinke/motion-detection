@@ -5,43 +5,51 @@ declare(strict_types=1);
 namespace App\Controller;
 
 use App\Entity\MotionDetectedFile;
+use App\Message\ProcessMotionDetectedFile;
+use App\Service\FileHandler;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\File\File;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Messenger\Exception\ExceptionInterface;
+use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
-class RecordingsController extends AbstractController
+ #[Route('/api/video')]
+class VideoController extends AbstractController
 {
-    #[Route('/api/upload-video', name: 'api_upload_video', methods: ['POST'])]
-    public function uploadVideo(Request $request, string $public_recordings_folder): Response
+     #[Route('/upload', name: 'api_video_upload', methods: ['POST'])]
+    public function uploadVideo(Request $request, EntityManagerInterface $entity_manager, MessageBusInterface $bus, string $private_recordings_folder): Response
     {
         if (!$request->files->has('file'))
         {
-            return new JsonResponse([
+            return $this->json([
                 'message' => 'No file uploaded'
             ], Response::HTTP_BAD_REQUEST);
         }
 
         /** @var UploadedFile $file */
         $file = $request->files->get('file');
-//        $filePath = sprintf('%s/%s', $public_recordings_folder, $file->getClientOriginalName());
-        $file->move($public_recordings_folder, $file->getClientOriginalName());
+        $original_file_name = $file->getClientOriginalName();
+        $unique_file_name = FileHandler::getUniqueFileName($private_recordings_folder, $original_file_name);
 
-        // get filename
-        // get path that it'll save dat
+        $file->move($private_recordings_folder, $unique_file_name);
 
-        // create entity
-//        $motion_detected_file = MotionDetectedFile::createFromDTO($motion_detected_file_dto);
-//        $entity_manager->persist($motion_detected_file);
-//        $entity_manager->flush();
+        $motion_detected_file = MotionDetectedFile::createFromFile($unique_file_name, $private_recordings_folder);
+        $entity_manager->persist($motion_detected_file);
+        $entity_manager->flush();
+
+        $bus->dispatch(new ProcessMotionDetectedFile($motion_detected_file->getId()));
+
+        return $this->json(['message' => 'Motion successfully uploaded'], Response::HTTP_OK);
     }
 
-    #[Route('/recordings/{filename}', name: 'stream_recording')]
+    #[Route('/stream/{filename}', name: 'stream_recording')]
     public function getRecording(string $filename, Request $request, string $public_recordings_folder): Response
     {
         $filePath = sprintf('%s/%s', $public_recordings_folder, $filename);
@@ -149,7 +157,7 @@ class RecordingsController extends AbstractController
     }
 
     // Debug route to check file accessibility
-    #[Route('/debug-recordings/{filename}', name: 'debug_recording')]
+    #[Route('/debug/{filename}', name: 'debug_recording')]
     public function debugRecording(string $filename): Response
     {
         $filePath = sprintf('%s/public/recordings/%s', $this->getParameter('kernel.project_dir'), $filename);
