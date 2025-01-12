@@ -1,76 +1,40 @@
-# Global Caddy options
 {
-    email your-email@example.com
+    # Global options block
+    admin localhost:2019
+    email eddykill@gmail.com
 }
 
-# Redirect HTTP to HTTPS
-:80 {
-    redir https://{host}{uri} permanent
+# Redirect all HTTP traffic to HTTPS
+http:// {
+    redir https://{host}{uri}
 }
 
-# HTTPS Configuration
-:443 {
-    # Root Symfony public directory
+# HTTPS server block for the Symfony project
+https:// {
+    # Root directory for your Symfony project
     root * /var/www/symfony/public
+    encode gzip
 
-    # Compression
-    encode gzip zstd
+    # Use internal TLS
+    tls internal
 
     # PHP FastCGI configuration
-    php_fastcgi app:9000 {
-        # Increase timeouts for large file uploads
-        read_timeout 300s
-        write_timeout 300s
-    }
+    php_fastcgi symfony_app:9000
 
-    # Security headers for all routes
-    header {
-        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
-        X-Content-Type-Options "nosniff"
-        X-Frame-Options "DENY"
-        X-XSS-Protection "1; mode=block"
-        Referrer-Policy "strict-origin-when-cross-origin"
-        Permissions-Policy "geolocation=(), microphone=(), camera=()"
-        Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'"
-    }
-
-    # CORS configuration for API routes
-    header /api/* {
-        Access-Control-Allow-Origin "*"
-        Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
-        Access-Control-Allow-Headers "Content-Type, Authorization, Range"
-        Access-Control-Max-Age "86400"
-    }
-
-    # Video upload route specific configuration
-    route /api/upload-video {
-        # Longer timeout for video uploads
-        request_body {
-            max_size 1GB  # Adjust based on your max video size
+    # Rewrite to Symfony's front controller if no other file matches
+    @rewrite {
+        file {
+            try_files {path} /index.php
         }
     }
+    rewrite * @rewrite
 
-    # Specific configuration for video recordings
-    route /recordings/* {
-        header Cache-Control "public, max-age=86400"
-    }
+    # Enable static file serving
+    file_server
 
-    # Routing for Symfony
-    try_files {path} {path}/index.php =404
-
-    # Default PHP handling
-    rewrite * /index.php
-
-    # Logging
+    # Logging configuration
     log {
         output stdout
         format json
-        level INFO
-    }
-
-    # Error handling
-    handle_errors {
-        rewrite * /index.php
-        php_fastcgi app:9000
     }
 }
