@@ -1,79 +1,222 @@
-<template>
-  <v-footer height="40" app>
-    <a
-      v-for="item in items"
-      :key="item.title"
-      :href="item.href"
-      :title="item.title"
-      class="d-inline-block mx-2 social-link"
-      rel="noopener noreferrer"
-      target="_blank"
-    >
-      <v-icon
-        :icon="item.icon"
-        :size="item.icon === '$vuetify' ? 24 : 16"
-      />
-    </a>
-
-    <div
-      class="text-caption text-disabled"
-      style="position: absolute; right: 16px;"
-    >
-      &copy; 2016-{{ (new Date()).getFullYear() }} <span class="d-none d-sm-inline-block">Vuetify, LLC</span>
-      —
-      <a
-        class="text-decoration-none on-surface"
-        href="https://vuetifyjs.com/about/licensing/"
-        rel="noopener noreferrer"
-        target="_blank"
-      >
-        MIT License
-      </a>
-    </div>
-  </v-footer>
-</template>
-
 <script setup>
-  const items = [
-    {
-      title: 'Vuetify Documentation',
-      icon: `$vuetify`,
-      href: 'https://vuetifyjs.com/',
+import { ref, onMounted, getCurrentInstance } from 'vue'
+
+// Get the Vue instance to access global properties
+const app = getCurrentInstance()
+const api = app?.appContext.config.globalProperties.$api
+
+if (!api) {
+  console.error('API instance not found. Make sure it is registered correctly in your plugin.')
+}
+
+const networkCalls = ref([])
+const isVisible = ref(true)
+
+// Function to add interceptors to axios instance
+const setupAxiosInterceptors = () => {
+  if (!api) return
+
+  // Request interceptor
+  api.interceptors.request.use(
+    (config) => {
+      console.log(111, config);
+      const timestamp = new Date().toLocaleTimeString()
+      networkCalls.value.push({
+        id: Date.now(),
+        timestamp,
+        url: config.url,
+        showUrl: config.baseURL + config.url + JSON.stringify(config.params) + JSON.stringify(config.headers),
+        method: config.method.toUpperCase(),
+        status: 'Pending',
+        duration: 0,
+        startTime: Date.now()
+      })
+      return config
     },
-    {
-      title: 'Vuetify Support',
-      icon: 'mdi-shield-star-outline',
-      href: 'https://support.vuetifyjs.com/',
+    (error) => {
+      return Promise.reject(error)
+    }
+  )
+
+  // Response interceptor
+  api.interceptors.response.use(
+    (response) => {
+      const call = networkCalls.value.find(
+        call => call.url === response.config.url && call.status === 'Pending'
+      )
+      if (call) {
+        call.status = response.status
+        call.duration = Date.now() - call.startTime
+      }
+      return response
     },
-    {
-      title: 'Vuetify X',
-      icon: ['M2.04875 3.00002L9.77052 13.3248L1.99998 21.7192H3.74882L10.5519 14.3697L16.0486 21.7192H22L13.8437 10.8137L21.0765 3.00002H19.3277L13.0624 9.76874L8.0001 3.00002H2.04875ZM4.62054 4.28821H7.35461L19.4278 20.4308H16.6937L4.62054 4.28821Z'],
-      href: 'https://x.com/vuetifyjs',
-    },
-    {
-      title: 'Vuetify GitHub',
-      icon: `mdi-github`,
-      href: 'https://github.com/vuetifyjs/vuetify',
-    },
-    {
-      title: 'Vuetify Discord',
-      icon: ['M22,24L16.75,19L17.38,21H4.5A2.5,2.5 0 0,1 2,18.5V3.5A2.5,2.5 0 0,1 4.5,1H19.5A2.5,2.5 0 0,1 22,3.5V24M12,6.8C9.32,6.8 7.44,7.95 7.44,7.95C8.47,7.03 10.27,6.5 10.27,6.5L10.1,6.33C8.41,6.36 6.88,7.53 6.88,7.53C5.16,11.12 5.27,14.22 5.27,14.22C6.67,16.03 8.75,15.9 8.75,15.9L9.46,15C8.21,14.73 7.42,13.62 7.42,13.62C7.42,13.62 9.3,14.9 12,14.9C14.7,14.9 16.58,13.62 16.58,13.62C16.58,13.62 15.79,14.73 14.54,15L15.25,15.9C15.25,15.9 17.33,16.03 18.73,14.22C18.73,14.22 18.84,11.12 17.12,7.53C17.12,7.53 15.59,6.36 13.9,6.33L13.73,6.5C13.73,6.5 15.53,7.03 16.56,7.95C16.56,7.95 14.68,6.8 12,6.8M9.93,10.59C10.58,10.59 11.11,11.16 11.1,11.86C11.1,12.55 10.58,13.13 9.93,13.13C9.29,13.13 8.77,12.55 8.77,11.86C8.77,11.16 9.28,10.59 9.93,10.59M14.1,10.59C14.75,10.59 15.27,11.16 15.27,11.86C15.27,12.55 14.75,13.13 14.1,13.13C13.46,13.13 12.94,12.55 12.94,11.86C12.94,11.16 13.45,10.59 14.1,10.59Z'],
-      href: 'https://community.vuetifyjs.com/',
-    },
-    {
-      title: 'Vuetify Reddit',
-      icon: `mdi-reddit`,
-      href: 'https://reddit.com/r/vuetifyjs',
-    },
-  ]
+    (error) => {
+      const call = networkCalls.value.find(
+        call => call.url === error.config.url && call.status === 'Pending'
+      )
+      if (call) {
+        call.status = error.response?.status || 'Error'
+        call.duration = Date.now() - call.startTime
+      }
+      return Promise.reject(error)
+    }
+  )
+}
+
+const toggleVisibility = () => {
+  isVisible.value = !isVisible.value
+}
+
+const clearHistory = () => {
+  networkCalls.value = []
+}
+
+onMounted(() => {
+  setupAxiosInterceptors()
+})
 </script>
 
-<style scoped lang="sass">
-  .social-link :deep(.v-icon)
-    color: rgba(var(--v-theme-on-background), var(--v-disabled-opacity))
-    text-decoration: none
-    transition: .2s ease-in-out
+<!-- Rest of template and style remains exactly the same -->
+<template>
+  <div class="network-logger" :class="{ 'network-logger--collapsed': !isVisible }">
+    <div class="network-logger__header">
+      <h3>Network Calls</h3>
+      <div class="network-logger__actions">
+        <button @click="clearHistory" class="network-logger__button">Clear</button>
+        <button @click="toggleVisibility" class="network-logger__button">
+          {{ isVisible ? 'Hide' : 'Show' }}
+        </button>
+      </div>
+    </div>
 
-    &:hover
-      color: rgba(25, 118, 210, 1)
+    <div v-if="isVisible" class="network-logger__content">
+      <div v-if="networkCalls.length === 0" class="network-logger__empty">
+        No network calls yet
+      </div>
+      <div v-else class="network-logger__calls">
+        <div
+          v-for="call in networkCalls"
+          :key="call.id"
+          class="network-logger__call"
+          :class="{
+            'network-logger__call--success': call.status >= 200 && call.status < 300,
+            'network-logger__call--error': call.status >= 400
+          }"
+        >
+<!--          <div class="network-logger__call-method">{{ call.method }}</div>-->
+          <div class="network-logger__call-url">{{ call.showUrl }}</div>
+<!--          <div class="network-logger__call-status">{{ call.status }}</div>-->
+<!--          <div class="network-logger__call-time">-->
+<!--            {{ call.timestamp }}-->
+<!--            <span v-if="call.duration">({{ call.duration }}ms)</span>-->
+<!--          </div>-->
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+/* Styles remain exactly the same */
+.network-logger {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #f8f9fa;
+  border-top: 1px solid #dee2e6;
+  font-family: monospace;
+  z-index: 9999;
+  color:black;
+}
+
+.network-logger--collapsed {
+  height: 40px;
+}
+
+.network-logger__header {
+  padding: 8px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #e9ecef;
+}
+
+.network-logger__header h3 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.network-logger__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.network-logger__button {
+  padding: 4px 8px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  background: white;
+  cursor: pointer;
+}
+
+.network-logger__button:hover {
+  background: #e9ecef;
+}
+
+.network-logger__content {
+  height: 200px;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.network-logger__empty {
+  text-align: center;
+  color: #6c757d;
+  padding: 16px;
+}
+
+.network-logger__calls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.network-logger__call {
+  display: grid;
+  grid-template-columns: 80px 1fr 80px 200px;
+  gap: 16px;
+  padding: 8px;
+  border-radius: 4px;
+  background: white;
+  border: 1px solid #dee2e6;
+  font-size: 12px;
+}
+
+.network-logger__call--success {
+  border-left: 4px solid #28a745;
+}
+
+.network-logger__call--error {
+  border-left: 4px solid #dc3545;
+}
+
+.network-logger__call-method {
+  font-weight: bold;
+}
+
+.network-logger__call-url {
+  //overflow: hidden;
+  //text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.network-logger__call-status {
+  text-align: center;
+}
+
+.network-logger__call-time {
+  text-align: right;
+  color: #6c757d;
+}
 </style>

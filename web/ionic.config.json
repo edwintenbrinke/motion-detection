@@ -1,0 +1,7 @@
+{
+  "name": "motion-detection",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "custom"
+}

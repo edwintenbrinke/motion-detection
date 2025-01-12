@@ -1,0 +1,5 @@
+{
+  "appId": "motion.detection",
+  "appName": "motion-detection",
+  "webDir": "dist"
+}
