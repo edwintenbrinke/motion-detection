@@ -108,19 +108,14 @@ export default defineComponent({
 </script>
 
 <template>
-  <div>
-    <router-link to="/calendar" class="back-button">
-      Back to Month View
-    </router-link>
-    <div class="demo-app-calendar">
-      <FullCalendar :options="listViewOptions" />
-      <VideoSlider
-        v-if="hasVideos"
-        :key="route.params.date"
-        :apiResult="videoUrls"
-        :active-video-url="selectedVideoId"
-      />
-    </div>
+  <div class="demo-app-calendar">
+    <FullCalendar :options="listViewOptions" />
+    <VideoSlider
+      v-if="hasVideos"
+      :key="route.params.date"
+      :apiResult="videoUrls"
+      :active-video-url="selectedVideoId"
+    />
   </div>
 </template>
 
@@ -128,19 +123,5 @@ export default defineComponent({
 .demo-app-calendar {
   max-width: 1100px;
   margin: 0 auto;
-}
-
-.back-button {
-  display: inline-block;
-  margin-bottom: 1rem;
-  padding: 0.5rem 1rem;
-  text-decoration: none;
-  background-color: #f0f0f0;
-  border-radius: 4px;
-  color: #333;
-}
-
-.back-button:hover {
-  background-color: #e0e0e0;
 }
 </style>
