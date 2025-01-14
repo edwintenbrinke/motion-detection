@@ -15,6 +15,7 @@ class MotionDetectedFileFixtures extends Fixture
         $motion_detected_file = new MotionDetectedFile(
             'test.mp4',
             '/test.mp4',
+            0,
             MotionDetectedFileTypeEnum::normal,
             $now = $this->remove30Minutes($now)
         );
@@ -22,6 +23,7 @@ class MotionDetectedFileFixtures extends Fixture
         $motion_detected_file2 = new MotionDetectedFile(
             'test2.mp4',
             '/test2.mp4',
+            0,
             MotionDetectedFileTypeEnum::important,
             $now = $this->remove30Minutes($now)
         );
@@ -29,6 +31,7 @@ class MotionDetectedFileFixtures extends Fixture
         $motion_detected_file2 = new MotionDetectedFile(
             'test3.mp4',
             '/test3.mp4',
+            0,
             MotionDetectedFileTypeEnum::normal,
             $now = $this->remove30Minutes($now)
         );
@@ -38,6 +41,7 @@ class MotionDetectedFileFixtures extends Fixture
             $motion_detected_file = new MotionDetectedFile(
                 "file name $i",
                 "file path $i",
+                0,
                 MotionDetectedFileTypeEnum::normal,
                 $now = $this->remove30Minutes($now)
             );

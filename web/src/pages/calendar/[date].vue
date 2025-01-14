@@ -74,14 +74,14 @@ export default defineComponent({
 
       const dateString = info.startStr;
       this.$api
-        .get("/api/motion-detected-file/calendar", {
+        .get("http://10.0.2.2/api/motion-detected-file/calendar", {
           params: { date: dateString },
         })
         .then((response) => {
           const data = response.data;
           if (data && data.length > 0) {
             this.videoUrls = data.map(item =>
-              `http://localhost/api/video/stream/${item.title}`
+              `http://10.0.2.2/api/video/stream/${item.title}`
             );
             this.hasVideos = true;
           }

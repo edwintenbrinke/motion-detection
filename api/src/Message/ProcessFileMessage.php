@@ -2,7 +2,7 @@
 
 namespace App\Message;
 
-class ProcessMotionDetectedFile
+class ProcessFileMessage
 {
     public function __construct(
         private int $id,

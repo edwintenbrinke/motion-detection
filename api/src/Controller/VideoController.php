@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace App\Controller;
 
 use App\Entity\MotionDetectedFile;
-use App\Message\ProcessMotionDetectedFile;
+use App\Message\FileCleanupMessage;
+use App\Message\ProcessFileMessage;
 use App\Service\FileHandler;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -25,7 +26,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 class VideoController extends AbstractController
 {
      #[Route('/upload', name: 'api_video_upload', methods: ['POST'])]
-    public function uploadVideo(Request $request, EntityManagerInterface $entity_manager, MessageBusInterface $bus, string $private_recordings_folder): Response
+    public function uploadVideo(Request $request, EntityManagerInterface $entity_manager, MessageBusInterface $bus, string $private_recordings_folder, int $max_disk_usage_size_gb): Response
     {
         if (!$request->files->has('file'))
         {
@@ -39,13 +40,24 @@ class VideoController extends AbstractController
         $original_file_name = $file->getClientOriginalName();
         $unique_file_name = FileHandler::getUniqueFileName($private_recordings_folder, $original_file_name);
 
+        // Move the file to the target directory
+        $file_path = $private_recordings_folder . DIRECTORY_SEPARATOR . $unique_file_name;
         $file->move($private_recordings_folder, $unique_file_name);
 
-        $motion_detected_file = MotionDetectedFile::createFromFile($unique_file_name, $private_recordings_folder);
+        // Get the accurate file size using filesize() after moving the file
+        if (!file_exists($file_path)) {
+            return $this->json([
+                'message' => 'File move failed'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+
+        $file_size = filesize($file_path);
+        $motion_detected_file = MotionDetectedFile::createFromFile($unique_file_name, $private_recordings_folder, $file_size);
         $entity_manager->persist($motion_detected_file);
         $entity_manager->flush();
 
-        $bus->dispatch(new ProcessMotionDetectedFile($motion_detected_file->getId()));
+        $bus->dispatch(new ProcessFileMessage($motion_detected_file->getId()));
+        $bus->dispatch(new FileCleanupMessage($max_disk_usage_size_gb, $motion_detected_file->getType()));
 
         return $this->json(['message' => 'Motion successfully uploaded'], Response::HTTP_OK);
     }

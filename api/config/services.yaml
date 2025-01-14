@@ -13,6 +13,8 @@ services:
         bind:
             string $public_recordings_folder: '%env(resolve:PUBLIC_RECORDINGS_FOLDER)%'
             string $private_recordings_folder: '%env(resolve:PRIVATE_UNPROCESSED_RECORDINGS_FOLDER)%'
+            int $max_disk_usage_size_gb: '%env(int:MAX_DISK_SIZE_USAGE_GB)%'
+
             # Automatically inject the conversion logger into any service requiring it
 #            LoggerInterface $conversion_logger: '@monolog.logger.conversion_logger'  # Bind conversion_logger
 
@@ -25,7 +27,7 @@ services:
             - '../src/Entity/'
             - '../src/Kernel.php'
 
-    App\MessageHandler\ProcessMotionDetectedFileHandler:
+    App\MessageHandler\ProcessFileMessageHandler:
         arguments:
             $conversion_logger: '@monolog.logger.conversion_logger'
     # add more service definitions when explicit configuration is needed

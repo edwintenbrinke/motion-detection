@@ -103,7 +103,7 @@ export default {
             type: 'loop',
             perPage: 1,
             gap: '1rem',
-            pagination: true,
+            pagination: false,
             arrows: true,
             drag: true,
             height: '400px',

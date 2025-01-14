@@ -2,9 +2,8 @@
 
 namespace App\MessageHandler;
 
-use AllowDynamicProperties;
 use App\Entity\MotionDetectedFile;
-use App\Message\ProcessMotionDetectedFile;
+use App\Message\ProcessFileMessage;
 use App\Service\FileHandler;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
@@ -13,7 +12,7 @@ use Symfony\Component\Process\Exception\ProcessFailedException;
 use Symfony\Component\Process\Process;
 
 #[AsMessageHandler]
-class ProcessMotionDetectedFileHandler
+class ProcessFileMessageHandler
 {
     private EntityManagerInterface $entity_manager;
     private LoggerInterface $conversion_logger;
@@ -27,7 +26,7 @@ class ProcessMotionDetectedFileHandler
         $this->ffmpeg_path = $ffmpeg_path;
     }
 
-    public function __invoke(ProcessMotionDetectedFile $message)
+    public function __invoke(ProcessFileMessage $message)
     {
         $motion_detected_file = $this->entity_manager->getRepository(MotionDetectedFile::class)->find($message->getId());
         if (!$motion_detected_file)
@@ -49,6 +48,7 @@ class ProcessMotionDetectedFileHandler
         $motion_detected_file->setProcessed(true);
         $motion_detected_file->setFileName($unique_file_name_mp4);
         $motion_detected_file->setFilePath($output_folder);
+        $motion_detected_file->setFileSize(filesize($output_file_path));
         $this->entity_manager->flush();
         return true;
     }

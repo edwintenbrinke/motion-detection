@@ -4,6 +4,7 @@ namespace App\Repository;
 
 use App\DTO\PaginatedResponseDTO;
 use App\Entity\MotionDetectedFile;
+use App\Enum\MotionDetectedFileTypeEnum;
 use App\Service\PaginationService;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
@@ -36,6 +37,26 @@ class MotionDetectedFileRepository extends ServiceEntityRepository
             ->where('m.created_at >= :start_time AND m.created_at <= :end_time')
             ->setParameter('start_time', $start_time)
             ->setParameter('end_time', $end_time)
+            ->getQuery()
+            ->getResult();
+    }
+
+    public function getTotalFileSize(MotionDetectedFileTypeEnum $type): int
+    {
+        return (int) $this->createQueryBuilder('f')
+            ->select('SUM(f.file_size)')
+            ->where('f.type = :type')
+            ->setParameter('type', $type)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    public function findFilesOrderedByDateWithLimit(MotionDetectedFileTypeEnum $type, int $limit, int $offset): array
+    {
+        return $this->createQueryBuilder('f')
+            ->where('f.type = :type')
+            ->setParameter('type', $type)
+            ->orderBy('f.created_at', 'ASC')
             ->getQuery()
             ->getResult();
     }

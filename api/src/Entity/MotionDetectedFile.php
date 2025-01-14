@@ -26,9 +26,13 @@ class MotionDetectedFile
     #[Assert\NotBlank(message: 'File path cannot be blank')]
     private string $file_path;
 
+    #[ORM\Column(type: 'bigint')]
+    #[Assert\NotBlank(message: 'File size cannot be blank')]
+    #[Assert\PositiveOrZero(message: 'File size must be a positive number')]
+    private int $file_size;
+
     #[ORM\Column(enumType: MotionDetectedFileTypeEnum::class)]
     #[Assert\NotBlank(message: 'Type cannot be blank')]
-//    #[Assert\Choice(callback: [MotionDetectedFileTypeEnum::class, 'values'])]
     private MotionDetectedFileTypeEnum $type;
 
     #[ORM\Column]
@@ -40,10 +44,11 @@ class MotionDetectedFile
     #[ORM\Column]
     private \DateTimeImmutable $updated_at;
 
-    public function __construct(string $file_name, string $file_path, MotionDetectedFileTypeEnum $type, ?\DateTimeImmutable $created_at = null)
+    public function __construct(string $file_name, string $file_path, int $file_size, MotionDetectedFileTypeEnum $type, ?\DateTimeImmutable $created_at = null)
     {
         $this->file_name = $file_name;
         $this->file_path = $file_path;
+        $this->file_size = $file_size;
         $this->type = $type;
         $this->created_at = $created_at ?? new \DateTimeImmutable();
         $this->updated_at = new \DateTimeImmutable();
@@ -55,15 +60,17 @@ class MotionDetectedFile
         return new self(
             $input_dto->file_name,
             $input_dto->file_path,
+            0,
             MotionDetectedFileTypeEnum::getEnum($input_dto->type)
         );
     }
 
-    public static function createFromFile(string $file_name, string $file_path): self
+    public static function createFromFile(string $file_name, string $file_path, int $file_size): self
     {
         return new self(
             $file_name,
             $file_path,
+            $file_size,
             MotionDetectedFileTypeEnum::normal
         );
     }
@@ -95,6 +102,16 @@ class MotionDetectedFile
         $this->file_path = $file_path;
 
         return $this;
+    }
+
+    public function getFileSize(): int
+    {
+        return $this->file_size;
+    }
+
+    public function setFileSize(int $file_size): void
+    {
+        $this->file_size = $file_size;
     }
 
     public function getFullFilePath(?string $file_name = null): string
