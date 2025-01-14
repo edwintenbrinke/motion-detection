@@ -5,6 +5,7 @@ namespace App\MessageHandler;
 use AllowDynamicProperties;
 use App\Entity\MotionDetectedFile;
 use App\Message\ProcessMotionDetectedFile;
+use App\Service\FileHandler;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
@@ -34,23 +35,26 @@ class ProcessMotionDetectedFileHandler
             return false;
         }
 
-        if (!$this->convertH264ToMp4($motion_detected_file))
+        $input_file_path = $motion_detected_file->getFullFilePath();
+
+        $output_folder = rtrim($this->public_recordings_folder, DIRECTORY_SEPARATOR);
+        $unique_file_name_mp4 = FileHandler::getUniqueFileName($output_folder, $motion_detected_file->getFileNameForMp4());
+        $output_file_path = $output_folder . DIRECTORY_SEPARATOR . $unique_file_name_mp4;
+
+        if (!$this->convertH264ToMp4($input_file_path, $output_file_path))
         {
             return false;
         }
 
         $motion_detected_file->setProcessed(true);
-        $motion_detected_file->setFileName($motion_detected_file->getFileNameForMp4());
-        $motion_detected_file->setFilePath($this->public_recordings_folder);
+        $motion_detected_file->setFileName($unique_file_name_mp4);
+        $motion_detected_file->setFilePath($output_folder);
         $this->entity_manager->flush();
         return true;
     }
 
-    public function convertH264ToMp4(MotionDetectedFile $motion_detected_file): bool
+    public function convertH264ToMp4(string $input_file_path, string $output_file_path): bool
     {
-        $input_file_path = $motion_detected_file->getFullFilePath();
-        $output_file_path = rtrim($this->public_recordings_folder, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $motion_detected_file->getFileNameForMp4();
-
         // Log starting of conversion
         $this->conversion_logger->info("Starting conversion for file: $input_file_path", [
             'input' => $input_file_path,

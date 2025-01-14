@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\DTO\MotionDetectedFileCalendarOutputDTO;
 use App\DTO\MotionDetectedFileInputDTO;
 use App\DTO\MotionDetectedFileOutput2DTO;
 use App\DTO\MotionDetectedFileOutputDTO;
@@ -58,19 +59,25 @@ class MotionDetectedFileController extends AbstractController
     #[Route('/calendar', name: 'api_motion_detected_file_get_calendar', methods: ['GET'])]
     public function getCalendarAction(Request $request, MotionDetectedFileRepository $detected_file_repo): Response
     {
-        $start_date = (string)($request->query->get('startDate'));
-        $end_date = (string)($request->query->get('endDate'));
+        $date = (string)($request->query->get('date'));
 
-        if (!isset($start_date) || !isset($end_date))
+        if (!isset($date))
         {
             throw new BadRequestHttpException();
         }
 
-        $data = $detected_file_repo->returnPaginatedCalendar(new \DateTime($start_date), new \DateTime($end_date));
+        $data = $detected_file_repo->returnPaginatedCalendar(new \DateTime($date));
         $result = [];
         foreach ($data as $datum) {
             $serializedData = $this->serializer->normalize($datum);
-            $userDTO = $this->serializer->denormalize($serializedData, MotionDetectedFileOutput2DTO::class);
+//            dd($serializedData);
+            $formatted = [
+                'id' => $serializedData['id'],
+                'title' => $serializedData['file_name'],
+                'start' => $serializedData['created_at'],
+                'type' => $serializedData['type'],
+            ];
+            $userDTO = $this->serializer->denormalize($formatted, MotionDetectedFileCalendarOutputDTO::class);
             $result[] = $userDTO;
         }
         return $this->json($result);

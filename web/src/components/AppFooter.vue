@@ -10,7 +10,7 @@ if (!api) {
 }
 
 const networkCalls = ref([])
-const isVisible = ref(true)
+const isVisible = ref(false)
 
 // Function to add interceptors to axios instance
 const setupAxiosInterceptors = () => {
@@ -19,13 +19,12 @@ const setupAxiosInterceptors = () => {
   // Request interceptor
   api.interceptors.request.use(
     (config) => {
-      console.log(111, config);
       const timestamp = new Date().toLocaleTimeString()
       networkCalls.value.push({
         id: Date.now(),
         timestamp,
         url: config.url,
-        showUrl: config.baseURL + config.url + JSON.stringify(config.params) + JSON.stringify(config.headers),
+        showUrl: config.baseUrl + config.url + JSON.stringify(config.params) + JSON.stringify(config.headers),
         method: config.method.toUpperCase(),
         status: 'Pending',
         duration: 0,
@@ -55,6 +54,7 @@ const setupAxiosInterceptors = () => {
         call => call.url === error.config.url && call.status === 'Pending'
       )
       if (call) {
+        call.showUrl = JSON.stringify(error);
         call.status = error.response?.status || 'Error'
         call.duration = Date.now() - call.startTime
       }
@@ -207,8 +207,8 @@ onMounted(() => {
 
 .network-logger__call-url {
   //overflow: hidden;
-  //text-overflow: ellipsis;
-  white-space: nowrap;
+  text-overflow: ellipsis;
+  //white-space: nowrap;
 }
 
 .network-logger__call-status {

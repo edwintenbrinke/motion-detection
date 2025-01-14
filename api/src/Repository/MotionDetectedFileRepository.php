@@ -26,13 +26,17 @@ class MotionDetectedFileRepository extends ServiceEntityRepository
         return PaginationService::paginateQueryBuilder($query_builder, $page, $limit);
     }
 
-    public function returnPaginatedCalendar(\DateTime $start_time, \DateTime $end_time): array
+    public function returnPaginatedCalendar(\DateTime $date): array
     {
-        $query_builder = $this->createQueryBuilder('m')
+        $start_time = $date->format('Y-m-d 00:00:00');
+        $end_time = $date->format('Y-m-d 23:59:59');
+
+        return $this->createQueryBuilder('m')
             ->select('m')
             ->where('m.created_at >= :start_time AND m.created_at <= :end_time')
             ->setParameter('start_time', $start_time)
-            ->setParameter('end_time', $end_time);
-        return $query_builder->getQuery()->getResult();
+            ->setParameter('end_time', $end_time)
+            ->getQuery()
+            ->getResult();
     }
 }

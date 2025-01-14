@@ -2,11 +2,13 @@ import axios from 'axios';
 
 // Create an axios instance
 const apiClient = axios.create({
-  baseURL: 'https://localhost', //process.env.VUE_APP_API_BASE_URL || 'http://localhost', // Replace with your API base URL
+  baseURL: 'http://localhost',
+  // baseUrl: 'http://10.0.2.2', //process.env.VUE_APP_API_BASE_URL || 'http://localhost', // Replace with your API base URL
   timeout: 10000, // Request timeout in milliseconds
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true
 });
 
 // Interceptor for requests
@@ -28,7 +30,7 @@ apiClient.interceptors.response.use(
   },
   (error) => {
     // Handle errors globally if needed
-    console.error('API error:', error);
+    console.error('API error:', JSON.stringify(error));
     return Promise.reject(error);
   }
 );

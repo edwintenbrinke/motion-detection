@@ -1,10 +1,16 @@
 nelmio_cors:
     defaults:
-        origin_regex: true
-        allow_origin: ['%env(CORS_ALLOW_ORIGIN)%']
-        allow_methods: ['GET', 'OPTIONS', 'POST', 'PUT', 'PATCH', 'DELETE']
-        allow_headers: ['Content-Type', 'Authorization', 'Range']
-        expose_headers: ['Link']
-        max_age: 3600
+        allow_credentials: true
+        allow_origin: ['*']  # Allow all origins
+        allow_headers: ['*']  # Allow all headers
+        allow_methods: ['*']  # Allow all HTTP methods (GET, POST, PUT, DELETE, etc.)
+        expose_headers: []  # No specific headers to expose
+        max_age: 3600  # Cache preflight request for 1 hour
+
+    # You can also define rules for specific paths, if needed:
     paths:
-        '^/': null
+        '^/':  # Allow CORS for all paths
+            allow_origin: ['*']
+            allow_headers: ['*']
+            allow_methods: ['*']
+            allow_credentials: true
