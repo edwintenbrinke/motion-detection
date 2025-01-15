@@ -5,14 +5,12 @@
  */
 
 // Plugins
-import vuetify from './vuetify'
-import pinia from '@/stores'
-import router from '@/router'
 import apiClient from './axios.js';
+import { createPinia } from 'pinia'
+import router from "@/router/index.js";
 export function registerPlugins (app) {
   app
-    .use(vuetify)
     .use(router)
-    .use(pinia)
+    .use(createPinia())
     .use(apiClient);
 }

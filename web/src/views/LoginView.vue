@@ -4,22 +4,22 @@
       <div class="form-group">
         <label for="username">Username</label>
         <input
-          type="text"
-          id="username"
-          v-model="username"
-          placeholder="Enter your username"
-          required
+            type="text"
+            id="username"
+            v-model="username"
+            placeholder="Enter your username"
+            required
         />
       </div>
 
       <div class="form-group">
         <label for="password">Password</label>
         <input
-          type="password"
-          id="password"
-          v-model="password"
-          placeholder="Enter your password"
-          required
+            type="password"
+            id="password"
+            v-model="password"
+            placeholder="Enter your password"
+            required
         />
       </div>
       <button type="submit" class="submit-button">Login</button>
@@ -34,7 +34,7 @@ export default {
   },
   data() {
     return {
-      username: '',
+      username: import.meta.env.VITE_API_BASE_URL,
       password: ''
     };
   },
@@ -45,7 +45,8 @@ export default {
           username: this.username,
           password: this.password
         });
-        console.log('Login successful:', response.data);
+        this.$router.push('/calendar')
+        // console.log('Login successful:', response.data);
         // Handle successful login (e.g., redirect, save token, etc.)
       } catch (error) {
         console.error('Login failed:', error.response?.data || error.message);
@@ -62,15 +63,11 @@ export default {
   justify-content: center;
   align-items: center;
   height: 100vh;
-  background-color: black;
   color: white;
 }
 
 form {
-  background: #1e1e1e;
   padding: 2rem;
-  border-radius: 8px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
   max-width: 400px;
   width: 100%;
 }
@@ -82,6 +79,7 @@ h1 {
 
 .form-group {
   margin-bottom: 1rem;
+  box-sizing: border-box;
 }
 
 label {
@@ -96,6 +94,7 @@ input {
   border-radius: 4px;
   background: #2c2c2c;
   color: white;
+  box-sizing: border-box; /* Add this line */
 }
 
 input:focus {

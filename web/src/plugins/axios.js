@@ -2,12 +2,8 @@ import axios from 'axios';
 
 // Create an axios instance
 const apiClient = axios.create({
-  baseURL: 'http://localhost',
-  // baseUrl: 'http://10.0.2.2', //process.env.VUE_APP_API_BASE_URL || 'http://localhost', // Replace with your API base URL
+  baseURL: import.meta.env.VITE_API_BASE_URL,
   timeout: 10000, // Request timeout in milliseconds
-  headers: {
-    'Content-Type': 'application/json',
-  },
   withCredentials: true
 });
 

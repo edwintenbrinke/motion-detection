@@ -24,7 +24,7 @@ const setupAxiosInterceptors = () => {
         id: Date.now(),
         timestamp,
         url: config.url,
-        showUrl: config.baseUrl + config.url + JSON.stringify(config.params) + JSON.stringify(config.headers),
+        showUrl: config.baseURL + config.url + JSON.stringify(config.params) + JSON.stringify(config.headers),
         method: config.method.toUpperCase(),
         status: 'Pending',
         duration: 0,

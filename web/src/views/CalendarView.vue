@@ -37,7 +37,7 @@ export default defineComponent({
   },
   methods: {
     handleDateClick(info) {
-      this.router.push(`/calendar/${info.dateStr}`);
+      this.$router.push(`/calendar/${info.dateStr}`);
     },
   },
 });

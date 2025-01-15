@@ -106,7 +106,6 @@ export default {
             pagination: false,
             arrows: true,
             drag: true,
-            height: '400px',
             autoplay: false,
             rewind: true,
             pauseOnHover: true,
@@ -227,7 +226,7 @@ export default {
 .video-slider-container {
   width: 100%;
   max-width: 100vw;
-  height: 400px;
+  max-height: 400px;
   margin: 0 auto;
   overflow: hidden;
   position: relative;

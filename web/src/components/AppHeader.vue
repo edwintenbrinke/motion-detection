@@ -1,45 +1,56 @@
 <template>
-  <header class="app-header">
-    <router-link to="/calendar" class="header-box">
-      Calendar
-    </router-link>
-    <router-link to="/table" class="header-box">
-      Table
-    </router-link>
+  <header class="header">
+    <button class="icon-button" @click="goHome">
+      <i class="fas fa-home"></i>
+    </button>
+    <h1 class="header-title">App Name</h1>
+    <button class="icon-button" @click="openSettings">
+      <i class="fas fa-cog"></i>
+    </button>
   </header>
 </template>
 
 <script>
 export default {
-  name: 'AppHeader'
-}
+  methods: {
+    goHome() {
+      this.$router.push('/calendar');
+    },
+    openSettings() {
+      // Logic to open settings
+      console.log("Settings button clicked");
+    },
+  },
+};
 </script>
 
 <style scoped>
-.app-header {
-  display: flex;
-  height: 40px; /* Adjust height as needed */
-}
-
-.header-box {
-  flex: 1;
+.header {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
+  background-color: #222;
+  padding: 10px 20px;
+  border-bottom: 1px solid #444;
   color: white;
-  text-decoration: none;
+}
+
+.icon-button {
+  background: none;
+  border: none;
+  color: white;
   font-size: 1.5rem;
+  cursor: pointer;
+  transition: color 0.3s;
+}
+
+.icon-button:hover {
+  color: #00b4d8;
+}
+
+.header-title {
+  font-size: 1.2rem;
   font-weight: bold;
-  border-right: 1px solid white; /* Separator line between boxes */
-  border-bottom: 1px solid white; /* Separator line between boxes */
-  transition: background-color 0.3s ease;
-}
-
-.header-box:last-child {
-  border-right: none; /* Remove border on the last box */
-}
-
-.header-box:hover {
-  background-color: #333;
+  color: white;
 }
 </style>

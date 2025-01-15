@@ -1,0 +1,99 @@
+body {
+  margin: 0;
+  background-color: #1e1e1e;
+  color: white;
+}
+
+/* Dark theme styles for FullCalendar */
+.fc {
+  background-color: #1e1e1e;
+  color: #ffffff;
+}
+
+/* Header styling */
+.fc-header-toolbar {
+  background-color: #1e1e1e;
+  padding: 1rem;
+}
+
+.fc-toolbar-title {
+  color: #ffffff !important;
+}
+
+.fc-button {
+  background-color: #2d2d2d !important;
+  border-color: #404040 !important;
+  color: #ffffff !important;
+}
+
+.fc-button:hover {
+  background-color: #404040 !important;
+  border-color: #505050 !important;
+}
+
+.fc-button-active {
+  background-color: #404040 !important;
+  border-color: #505050 !important;
+}
+
+/* Calendar body styling */
+.fc-day {
+  background-color: #1e1e1e !important;
+  border-color: #333333 !important;
+}
+
+.fc-day-today {
+  background-color: #2d2d2d !important;
+}
+
+.fc-day-header {
+  background-color: #2d2d2d !important;
+  color: #ffffff !important;
+  border-color: #333333 !important;
+}
+
+.fc-day-number {
+  color: #ffffff !important;
+}
+
+/* Event styling */
+.fc-event {
+  background-color: #1e1e1e;
+  border: none;
+  border-radius: 3px;
+  color: #ffffff;
+}
+
+.fc-event:hover {
+  background-color: #0357b8;
+}
+
+/* Other calendar elements */
+.fc-timegrid-slot {
+  background-color: #1e1e1e;
+  border-color: #333333 !important;
+}
+
+.fc-timegrid-axis {
+  background-color: #2d2d2d;
+  color: #ffffff;
+  border-color: #333333 !important;
+}
+
+.fc-list-day-cushion {
+  background-color: #2d2d2d !important;
+}
+
+.fc-list-event:hover td {
+  background-color: #2d2d2d !important;
+}
+
+/* Time indicator line */
+.fc-timegrid-now-indicator-line {
+  border-color: #ff6b6b !important;
+}
+
+.fc-timegrid-now-indicator-arrow {
+  border-color: #ff6b6b !important;
+  color: #ff6b6b !important;
+}

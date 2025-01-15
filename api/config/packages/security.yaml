@@ -26,9 +26,12 @@ security:
         api:
             pattern: ^/api
             stateless: true
-            jwt: ~
+            custom_authenticators:
+                - App\Security\JwtCookieOrHeaderAuthenticator
+#            jwt:
+#                authenticator: App\Security\JwtCookieOrHeaderAuthenticator
 
     access_control:
         - { path: ^/api/login, roles: PUBLIC_ACCESS }
         - { path: ^/api/logout, roles: PUBLIC_ACCESS }
-#        - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }
+        - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }

@@ -74,23 +74,23 @@ export default defineComponent({
 
       const dateString = info.startStr;
       this.$api
-        .get("http://10.0.2.2/api/motion-detected-file/calendar", {
-          params: { date: dateString },
-        })
-        .then((response) => {
-          const data = response.data;
-          if (data && data.length > 0) {
-            this.videoUrls = data.map(item =>
-              `http://10.0.2.2/api/video/stream/${item.title}`
-            );
-            this.hasVideos = true;
-          }
-          successCallback(data);
-        })
-        .catch((error) => {
-          this.hasVideos = false;
-          failureCallback(null);
-        });
+          .get("/api/motion-detected-file/calendar", {
+            params: { date: dateString },
+          })
+          .then((response) => {
+            const data = response.data;
+            if (data && data.length > 0) {
+              this.videoUrls = data.map(item =>
+                  import.meta.env.VITE_API_BASE_URL + "api/video/stream/" + item.title
+              );
+              this.hasVideos = true;
+            }
+            successCallback(data);
+          })
+          .catch((error) => {
+            this.hasVideos = false;
+            failureCallback(null);
+          });
     },
     handleEventClick(clickInfo) {
       this.selectedVideoId = clickInfo.event.title;
@@ -111,10 +111,10 @@ export default defineComponent({
   <div class="demo-app-calendar">
     <FullCalendar :options="listViewOptions" />
     <VideoSlider
-      v-if="hasVideos"
-      :key="route.params.date"
-      :apiResult="videoUrls"
-      :active-video-url="selectedVideoId"
+        v-if="hasVideos"
+        :key="route.params.date"
+        :api-result="videoUrls"
+        :active-video-url="selectedVideoId"
     />
   </div>
 </template>
@@ -123,5 +123,10 @@ export default defineComponent({
 .demo-app-calendar {
   max-width: 1100px;
   margin: 0 auto;
+  color: white;
+}
+
+:deep(.fc-list-day) {
+  display: none;
 }
 </style>
