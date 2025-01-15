@@ -1,7 +1,8 @@
 monolog:
     channels:
         - deprecation  # Deprecations are logged in the dedicated "deprecation" channel when it exists
-        - conversion_logger  # Your custom logger channel for video conversion logs
+        - conversion_logger
+        - request_response_logger
 
     handlers:
         # Log rotation for the conversion_logger (defined globally)
@@ -11,6 +12,13 @@ monolog:
             level: debug
             max_files: 7  # Retain logs for 7 days
             channels: [ 'conversion_logger' ]
+            formatter: monolog.formatter.line
+        request_response_logger:
+            type: rotating_file
+            path: "%kernel.logs_dir%/request_response.log"  # Path to the conversion logs
+            level: debug
+            max_files: 2
+            channels: [ 'request_response_logger' ]
             formatter: monolog.formatter.line
 
 when@dev:

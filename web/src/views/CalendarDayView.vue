@@ -1,16 +1,55 @@
+<template>
+  <div class="demo-app-calendar">
+    <div class="calendar-header">
+      <div class="nav-controls">
+        <button class="nav-button" @click="changeDate(-1)">
+          <i class="fas fa-chevron-left"></i>
+        </button>
+        <button class="today-button" @click="goToToday">Today</button>
+        <button class="nav-button" @click="changeDate(1)">
+          <i class="fas fa-chevron-right"></i>
+        </button>
+      </div>
+      <h2 class="date-display">{{ formattedDate }}</h2>
+    </div>
+
+    <div class="main-content">
+      <div class="video-container">
+        <VideoSlider
+            :key="route.params.date"
+            :api-result="videoUrls"
+            :active-video-url="selectedVideoId"
+        />
+      </div>
+
+      <div class="video-list-wrapper">
+        <div v-if="!hasVideos" class="no-videos">
+          No videos found for this date.
+        </div>
+        <div v-else class="video-list">
+          <div
+              v-for="(video, index) in videoList"
+              :key="index"
+              :class="['video-item', listItemClass(video.type), { 'selected': selectedVideoId === video.file_name }]"
+              @click="selectVideo(video.file_name)"
+          >
+            <span class="video-time">{{ formattedItemDate(video.created_at) }}</span>
+            <span class="video-title">{{ video.file_name }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
 <script>
-import { defineComponent, watch } from "vue";
-import { useRoute, useRouter } from 'vue-router';
-import FullCalendar from "@fullcalendar/vue3";
-import listPlugin from "@fullcalendar/list";
-import interactionPlugin from "@fullcalendar/interaction";
-import VideoSlider from '@/components/VideoSlider.vue';
+import { defineComponent } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import VideoSlider from "@/components/VideoSlider.vue";
+import dayjs from "dayjs";
 
 export default defineComponent({
-  components: {
-    FullCalendar,
-    VideoSlider,
-  },
+  components: { VideoSlider },
   setup() {
     const route = useRoute();
     const router = useRouter();
@@ -18,61 +57,57 @@ export default defineComponent({
   },
   data() {
     return {
+      videoList: [],
       videoUrls: [],
       selectedVideoId: null,
       hasVideos: false,
-      listViewOptions: {
-        plugins: [listPlugin, interactionPlugin],
-        headerToolbar: {
-          left: "prev,next today",
-          center: "title",
-          right: "",
-        },
-        initialView: "listDay",
-        eventTimeFormat: {
-          hour: "numeric",
-          minute: "2-digit",
-          second: "2-digit",
-          meridiem: false,
-          hour12: false
-        },
-        editable: false,
-        selectable: false,
-        events: this.fetchDayEvents,
-        eventClick: this.handleEventClick,
-        eventDidMount: this.eventStyling,
-        datesSet: this.handleDatesSet,
-      },
+      currentDate: this.route.params.date ? dayjs(this.route.params.date) : dayjs(),
     };
+  },
+  computed: {
+    formattedDate() {
+      return this.currentDate.format("MMMM D, YYYY");
+    },
   },
   created() {
     if (this.route.params.date) {
-      this.listViewOptions.initialDate = this.route.params.date;
+      const newDate = dayjs(this.route.params.date);
+      if (newDate.isValid() && !this.currentDate.isSame(newDate, 'day')) {
+        this.currentDate = newDate;
+      }
     }
+    this.fetchDayEvents();
   },
   methods: {
-    eventStyling(info) {
-      if (info.event.type === 0) {
-        info.el.style.backgroundColor = 'red';
-        const dotEl = info.el.getElementsByClassName('fc-event-dot')[0];
-        if (dotEl) {
-          dotEl.style.backgroundColor = 'purple';
-        }
-      }
+    listItemClass(type) {
+      return type === 0 ? 'normal-item' : 'important-item';
     },
-    handleDatesSet(dateInfo) {
-      const newDate = dateInfo.startStr.split('T')[0];
+    formattedItemDate(date) {
+      return dayjs(date).format("HH:mm:ss");
+    },
+    changeDate(days) {
+      this.currentDate = this.currentDate.add(days, "day");
+      this.updateUrl();
+      this.fetchDayEvents();
+    },
+    goToToday() {
+      this.currentDate = dayjs();
+      this.updateUrl();
+      this.fetchDayEvents();
+    },
+    updateUrl() {
+      const newDate = this.currentDate.format("YYYY-MM-DD");
       if (this.route.params.date !== newDate) {
         this.router.push(`/calendar/${newDate}`);
       }
     },
-    fetchDayEvents(info, successCallback, failureCallback) {
-      // Reset state before fetching new data
+    fetchDayEvents() {
+      this.videoList = [];
       this.videoUrls = [];
       this.selectedVideoId = null;
       this.hasVideos = false;
 
-      const dateString = info.startStr;
+      const dateString = this.currentDate.format("YYYY-MM-DD");
       this.$api
           .get("/api/motion-detected-file/calendar", {
             params: { date: dateString },
@@ -80,53 +115,155 @@ export default defineComponent({
           .then((response) => {
             const data = response.data;
             if (data && data.length > 0) {
-              this.videoUrls = data.map(item =>
-                  import.meta.env.VITE_API_BASE_URL + "api/video/stream/" + item.title
+              this.videoList = data;
+              this.videoUrls = data.map(
+                  (item) => import.meta.env.VITE_API_BASE_URL + "api/video/stream/" + item.file_name
               );
               this.hasVideos = true;
             }
-            successCallback(data);
           })
-          .catch((error) => {
+          .catch(() => {
             this.hasVideos = false;
-            failureCallback(null);
           });
     },
-    handleEventClick(clickInfo) {
-      this.selectedVideoId = clickInfo.event.title;
+    selectVideo(title) {
+      this.selectedVideoId = title;
     },
   },
   watch: {
-    // Watch for route changes to reset video state
-    'route.params.date'() {
-      this.videoUrls = [];
-      this.selectedVideoId = null;
-      this.hasVideos = false;
-    }
-  }
+    "route.params.date"(newDate) {
+      const newDateObj = dayjs(newDate);
+      if (newDateObj.isValid() && !this.currentDate.isSame(newDateObj, "day")) {
+        this.currentDate = newDateObj;
+        this.fetchDayEvents();
+      }
+    },
+  },
 });
 </script>
 
-<template>
-  <div class="demo-app-calendar">
-    <FullCalendar :options="listViewOptions" />
-    <VideoSlider
-        v-if="hasVideos"
-        :key="route.params.date"
-        :api-result="videoUrls"
-        :active-video-url="selectedVideoId"
-    />
-  </div>
-</template>
-
 <style scoped>
 .demo-app-calendar {
-  max-width: 1100px;
-  margin: 0 auto;
+  width: 100%;
+  height: calc(100vh - 75px); /* Subtract header height (41px) + border (1px) + margin for safety (9px) */
+  display: flex;
+  flex-direction: column;
+  background-color: #1a1a1a;
   color: white;
 }
 
-:deep(.fc-list-day) {
-  display: none;
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem;
+  background-color: #333;
+}
+
+.nav-controls {
+  display: flex;
+  gap: 2px;
+}
+
+.nav-button, .today-button {
+  background-color: #444;
+  border: none;
+  color: white;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+}
+
+.nav-button:hover, .today-button:hover {
+  background-color: #555;
+}
+
+.date-display {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* Prevent content from spilling out */
+}
+
+.video-container {
+  width: 100%;
+  background-color: #000;
+  /* Let the video container take its natural height based on content */
+}
+
+.video-list-wrapper {
+  flex: 1; /* Take up remaining space */
+  display: flex;
+  flex-direction: column;
+  background-color: #1a1a1a;
+  border: 1px solid #333;
+  margin: 0.5rem;
+  border-radius: 4px;
+  overflow: hidden; /* Prevent content from spilling out */
+}
+
+.video-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.video-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #333;
+  cursor: pointer;
+}
+
+.video-item:hover {
+  background-color: #2a2a2a;
+}
+
+.normal-item {
+  background: linear-gradient(90deg, rgba(51,51,51,0) 60%, rgba(43,119,1,0.30) 100%);
+}
+
+.important-item {
+  background: linear-gradient(90deg, rgba(51,51,51,0) 60%, rgba(119, 1, 1, 0.82) 100%);
+}
+
+.selected {
+  background-color: #2a2a2a;
+}
+
+.video-time {
+  color: #888;
+}
+
+.video-title {
+  color: white;
+}
+
+.no-videos {
+  padding: 1rem;
+  text-align: center;
+  color: #888;
+}
+
+/* Scrollbar styling */
+.video-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.video-list::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+
+.video-list::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 4px;
+}
+
+.video-list::-webkit-scrollbar-thumb:hover {
+  background: #555;
 }
 </style>

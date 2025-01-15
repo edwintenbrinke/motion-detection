@@ -37,6 +37,7 @@ class MotionDetectedFileRepository extends ServiceEntityRepository
             ->where('m.created_at >= :start_time AND m.created_at <= :end_time')
             ->setParameter('start_time', $start_time)
             ->setParameter('end_time', $end_time)
+            ->orderBy('m.created_at', 'DESC')
             ->getQuery()
             ->getResult();
     }

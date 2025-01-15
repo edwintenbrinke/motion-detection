@@ -53,5 +53,6 @@ export default defineComponent({
 .demo-app-calendar {
   max-width: 1100px;
   margin: 0 auto;
+  padding:5px;
 }
 </style>

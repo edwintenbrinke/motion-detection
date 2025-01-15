@@ -23,6 +23,11 @@ security:
                 success_handler: App\Security\JwtCookieAuthenticationSuccessHandler
                 failure_handler: lexik_jwt_authentication.handler.authentication_failure
 
+        logout:
+            pattern: ^/api/logout
+            stateless: true
+            security: false  # Disable authentication for this path
+
         api:
             pattern: ^/api
             stateless: true

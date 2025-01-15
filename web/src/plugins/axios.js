@@ -1,34 +1,44 @@
 import axios from 'axios';
+import router from '@/router';
+import CookieHelper from "@/utils/CookieHelper.js";
 
 // Create an axios instance
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
-  timeout: 10000, // Request timeout in milliseconds
-  withCredentials: true
+  withCredentials: true,
 });
 
 // Interceptor for requests
 apiClient.interceptors.request.use(
-  (config) => {
-    // Add auth token or modify headers here if needed
-    // config.headers.Authorization = `Bearer ${yourAuthToken}`;
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
+    (config) => {
+      return config;
+    },
+    (error) => {
+      return Promise.reject(error);
+    }
 );
 
 // Interceptor for responses
 apiClient.interceptors.response.use(
-  (response) => {
-    return response;
-  },
-  (error) => {
-    // Handle errors globally if needed
-    console.error('API error:', JSON.stringify(error));
-    return Promise.reject(error);
-  }
+    (response) => {
+      return response;
+    },
+    async (error) => {
+      if (error.response) {
+        // Check if the status code is 401
+        if (error.response.status === 401) {
+          try {
+            await apiClient.post('/api/logout');
+          } catch (logoutError) {
+            CookieHelper.deleteCookie('username');
+            console.error('Error during logout:', logoutError);
+          }
+          router.push('/');
+        }
+      }
+
+      return Promise.reject(error);
+    }
 );
 
 export default {

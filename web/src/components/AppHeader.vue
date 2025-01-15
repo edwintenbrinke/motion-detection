@@ -3,8 +3,8 @@
     <button class="icon-button" @click="goHome">
       <i class="fas fa-home"></i>
     </button>
-    <h1 class="header-title">App Name</h1>
-    <button class="icon-button" @click="openSettings">
+    <h1 class="header-title">Motion Detected</h1>
+    <button class="icon-button" @click="logout">
       <i class="fas fa-cog"></i>
     </button>
   </header>
@@ -17,8 +17,11 @@ export default {
       this.$router.push('/calendar');
     },
     openSettings() {
-      // Logic to open settings
-      console.log("Settings button clicked");
+      this.$router.push('/');
+    },
+    async logout() {
+      await this.$api.get('/api/logout')
+      this.$router.push('/');
     },
   },
 };

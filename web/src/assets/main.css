@@ -2,6 +2,7 @@ body {
   margin: 0;
   background-color: #1e1e1e;
   color: white;
+  font-family: 'Inter', sans-serif;
 }
 
 /* Dark theme styles for FullCalendar */
@@ -78,6 +79,10 @@ body {
   background-color: #2d2d2d;
   color: #ffffff;
   border-color: #333333 !important;
+}
+
+.fc-toolbar-title {
+  font-size: 1.50em !important;
 }
 
 .fc-list-day-cushion {

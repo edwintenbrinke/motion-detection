@@ -69,16 +69,8 @@ class MotionDetectedFileController extends AbstractController
         $data = $detected_file_repo->returnPaginatedCalendar(new \DateTime($date));
         $result = [];
         foreach ($data as $datum) {
-            $serializedData = $this->serializer->normalize($datum);
-//            dd($serializedData);
-            $formatted = [
-                'id' => $serializedData['id'],
-                'title' => $serializedData['file_name'],
-                'start' => $serializedData['created_at'],
-                'type' => $serializedData['type'],
-            ];
-            $userDTO = $this->serializer->denormalize($formatted, MotionDetectedFileCalendarOutputDTO::class);
-            $result[] = $userDTO;
+            $serialized = $this->serializer->normalize($datum);
+            $result[] = $this->serializer->denormalize($serialized, MotionDetectedFileCalendarOutputDTO::class);
         }
         return $this->json($result);
     }

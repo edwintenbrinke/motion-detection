@@ -30,3 +30,10 @@ services:
     App\MessageHandler\ProcessFileMessageHandler:
         arguments:
             $conversion_logger: '@monolog.logger.conversion_logger'
+
+    App\Service\RequestResponseLogger:
+        arguments:
+            $request_response_logger: '@monolog.logger.request_response_logger'
+        tags:
+            - { name: kernel.event_listener, event: kernel.request, method: onKernelRequest }
+            - { name: kernel.event_listener, event: kernel.response, method: onKernelResponse }

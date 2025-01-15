@@ -9,6 +9,7 @@
             v-model="username"
             placeholder="Enter your username"
             required
+            ref="usernameInput"
         />
       </div>
 
@@ -22,35 +23,45 @@
             required
         />
       </div>
+
+      <div v-if="errorMessage" class="error-message">
+        {{ errorMessage }}
+      </div>
+
       <button type="submit" class="submit-button">Login</button>
     </form>
   </div>
 </template>
+
 <script>
 export default {
   name: 'LoginForm',
-  meta: {
-    layout: 'login'
-  },
   data() {
     return {
-      username: import.meta.env.VITE_API_BASE_URL,
-      password: ''
+      username: 'admin',
+      password: 'admin',
+      errorMessage: '' // State to hold error message
     };
+  },
+  mounted() {
+    this.$refs.usernameInput.focus(); // Automatically focus on username input
   },
   methods: {
     async handleSubmit() {
       try {
-        const response = await this.$api.post('/api/login', {
+        this.errorMessage = ''; // Clear any previous error message
+        await this.$api.post('/api/login', {
           username: this.username,
           password: this.password
         });
-        this.$router.push('/calendar')
-        // console.log('Login successful:', response.data);
-        // Handle successful login (e.g., redirect, save token, etc.)
+        this.$router.push('/calendar');
       } catch (error) {
+        if (error.response && error.response.status === 401) {
+          this.errorMessage = 'Invalid username or password. Please try again.';
+        } else {
+          this.errorMessage = 'An error occurred. Please try again later.';
+        }
         console.error('Login failed:', error.response?.data || error.message);
-        // Handle login failure (e.g., show error message)
       }
     }
   }
@@ -94,7 +105,7 @@ input {
   border-radius: 4px;
   background: #2c2c2c;
   color: white;
-  box-sizing: border-box; /* Add this line */
+  box-sizing: border-box;
 }
 
 input:focus {
@@ -116,5 +127,11 @@ input:focus {
 
 .submit-button:hover {
   background-color: #2c2c2c;
+}
+
+.error-message {
+  margin-bottom: 1rem;
+  color: #ff4d4d; /* Red color for errors */
+  text-align: center;
 }
 </style>

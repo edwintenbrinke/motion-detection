@@ -222,11 +222,10 @@ export default {
 </script>
 
 <style scoped>
-/* Styles remain unchanged */
 .video-slider-container {
   width: 100%;
   max-width: 100vw;
-  max-height: 400px;
+  max-height: 250px;
   margin: 0 auto;
   overflow: hidden;
   position: relative;
@@ -240,17 +239,6 @@ export default {
   align-items: center;
 }
 
-.video-placeholder {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background: #1a1a1a;
-  color: #fff;
-  font-size: 1.1rem;
-}
-
 .splide__slide {
   display: flex;
   justify-content: center;
@@ -260,42 +248,8 @@ export default {
 
 .video-player {
   width: 100%;
-  max-height: 400px;
+  max-height: 250px;
   object-fit: contain;
   outline: none;
-}
-
-.video-counter {
-  position: absolute;
-  bottom: 40px;
-  right: 20px;
-  background: rgba(0, 0, 0, 0.7);
-  color: white;
-  padding: 4px 8px;
-  border-radius: 4px;
-  z-index: 2;
-}
-
-.splide__arrows {
-  z-index: 1;
-}
-
-.splide__pagination {
-  bottom: 10px;
-}
-
-.splide__arrow {
-  background: rgba(255, 255, 255, 0.7);
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
-}
-
-.splide__pagination__page {
-  background: rgba(255, 255, 255, 0.7);
-}
-
-.splide__pagination__page.is-active {
-  background: #fff;
 }
 </style>

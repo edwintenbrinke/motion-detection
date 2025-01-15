@@ -36,7 +36,7 @@ class JwtCookieAuthenticationSuccessHandler implements AuthenticationSuccessHand
             true,         // Secure (HTTPS only)
             true,         // HTTP only
             false,        // Raw
-            Cookie::SAMESITE_STRICT // CSRF protection
+            Cookie::SAMESITE_NONE // CSRF protection
         );
 
         // Create non-HTTP-only cookie for username
@@ -49,7 +49,7 @@ class JwtCookieAuthenticationSuccessHandler implements AuthenticationSuccessHand
             true,
             false,  // Not HTTP only
             false,
-            Cookie::SAMESITE_STRICT
+            Cookie::SAMESITE_LAX
         );
 
         $response = new JsonResponse([
