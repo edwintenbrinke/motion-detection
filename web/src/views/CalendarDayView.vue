@@ -109,9 +109,7 @@ export default defineComponent({
 
       const dateString = this.currentDate.format("YYYY-MM-DD");
       this.$api
-          .get("/api/motion-detected-file/calendar", {
-            params: { date: dateString },
-          })
+          .get("/api/motion-detected-file/calendar/" + dateString)
           .then((response) => {
             const data = response.data;
             if (data && data.length > 0) {
