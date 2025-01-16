@@ -1,27 +1,32 @@
 <template>
   <header class="header">
-    <button class="icon-button" @click="goHome">
-      <i class="fas fa-home"></i>
-    </button>
-    <h1 class="header-title">Motion Detected</h1>
-    <button class="icon-button" @click="logout">
-      <i class="fas fa-cog"></i>
-    </button>
+    <div class="left-buttons">
+      <button class="icon-button" @click="openLivestream">
+        <i class="fa-solid fa-camera"></i>
+      </button>
+    </div>
+    <h1 class="header-title icon-button" @click="openCalendar">Motion Detected</h1>
+    <div class="right-buttons">
+      <button class="icon-button" @click="openSettings">
+        <i class="fas fa-cog"></i>
+      </button>
+    </div>
   </header>
 </template>
 
 <script>
+import {Preferences} from "@capacitor/preferences";
+
 export default {
   methods: {
-    goHome() {
+    openCalendar() {
       this.$router.push('/calendar');
     },
     openSettings() {
-      this.$router.push('/');
+      this.$router.push('/settings');
     },
-    async logout() {
-      await this.$api.get('/api/logout')
-      this.$router.push('/');
+    openLivestream() {
+      this.$router.push('/livestream');
     },
   },
 };
@@ -29,13 +34,32 @@ export default {
 
 <style scoped>
 .header {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
   background-color: #222;
   padding: 10px 20px;
   border-bottom: 1px solid #444;
   color: white;
+}
+
+.left-buttons {
+  justify-self: start;
+  display: flex;
+  gap: 10px;
+}
+
+.right-buttons {
+  justify-self: end;
+}
+
+.header-title {
+  grid-column: 2;
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: white;
+  margin: 0;
+  padding: 0 20px;
 }
 
 .icon-button {
@@ -49,11 +73,5 @@ export default {
 
 .icon-button:hover {
   color: #00b4d8;
-}
-
-.header-title {
-  font-size: 1.2rem;
-  font-weight: bold;
-  color: white;
 }
 </style>

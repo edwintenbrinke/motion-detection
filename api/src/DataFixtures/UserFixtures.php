@@ -32,5 +32,6 @@ class UserFixtures extends Fixture
 
         // Flush the changes to the database
         $manager->flush();
+        $this->addReference('admin', $user);
     }
 }

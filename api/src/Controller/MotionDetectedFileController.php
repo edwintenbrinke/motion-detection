@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
-use App\DTO\MotionDetectedFileCalendarOutputDTO;
-use App\DTO\MotionDetectedFileInputDTO;
-use App\DTO\MotionDetectedFileOutput2DTO;
-use App\DTO\MotionDetectedFileOutputDTO;
+use App\DTO\MotionDetectedFile\MotionDetectedFileCalendarOutputDTO;
+use App\DTO\MotionDetectedFile\MotionDetectedFileInputDTO;
+use App\DTO\MotionDetectedFile\MotionDetectedFileOutputDTO;
 use App\Entity\MotionDetectedFile;
 use App\Repository\MotionDetectedFileRepository;
 use App\Service\PaginationService;
@@ -60,30 +59,23 @@ class MotionDetectedFileController extends AbstractController
     public function getCalendarAction(Request $request, MotionDetectedFileRepository $detected_file_repo): Response
     {
         $date = (string)($request->query->get('date'));
-
         if (!isset($date))
         {
             throw new BadRequestHttpException();
         }
 
         $data = $detected_file_repo->returnPaginatedCalendar(new \DateTime($date));
-        $result = [];
-        foreach ($data as $datum) {
-            $serialized = $this->serializer->normalize($datum);
-            $result[] = $this->serializer->denormalize($serialized, MotionDetectedFileCalendarOutputDTO::class);
-        }
-        return $this->json($result);
+        return $this->json(
+            $this->serializeEntityArrayToDTOs($data, MotionDetectedFileCalendarOutputDTO::class)
+        );
     }
 
     #[Route('/calendar/{date}', name: 'api_motion_detected_file_get_calendar_day', methods: ['GET'])]
     public function getCalendarDayAction(MotionDetectedFileRepository $detected_file_repo, string $date): Response
     {
         $data = $detected_file_repo->returnPaginatedCalendar(new \DateTime($date));
-        $result = [];
-        foreach ($data as $datum) {
-            $serialized = $this->serializer->normalize($datum);
-            $result[] = $this->serializer->denormalize($serialized, MotionDetectedFileCalendarOutputDTO::class);
-        }
-        return $this->json($result);
+        return $this->json(
+            $this->serializeEntityArrayToDTOs($data, MotionDetectedFileCalendarOutputDTO::class)
+        );
     }
 }

@@ -4,17 +4,20 @@ FROM php:8.4-fpm
 # Set the working directory in the container
 WORKDIR /var/www/symfony
 
-# Install system dependencies and PHP extensions, including FFmpeg
 RUN apt-get update && apt-get install -y \
     libpng-dev \
     libjpeg-dev \
     libfreetype6-dev \
     libzip-dev \
     libpq-dev \
+    libonig-dev \
+    libxml2-dev \
     unzip \
+    curl \
     ffmpeg \
+    git \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install gd pdo pdo_mysql pdo_pgsql zip \
+    && docker-php-ext-install gd pdo pdo_mysql pdo_pgsql zip ctype iconv curl mbstring tokenizer xml \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install Composer globally

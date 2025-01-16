@@ -2,13 +2,11 @@
 
 namespace App\Entity;
 
-use App\DTO\MotionDetectedFileInputDTO;
+use App\DTO\MotionDetectedFile\MotionDetectedFileInputDTO;
 use App\Enum\MotionDetectedFileTypeEnum;
 use App\Repository\MotionDetectedFileRepository;
 use Doctrine\ORM\Mapping as ORM;
-use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\Validator\Constraints as Assert;
-use App\Validator\Constraints as CustomAssert;
 
 #[ORM\Entity(repositoryClass: MotionDetectedFileRepository::class)]
 class MotionDetectedFile

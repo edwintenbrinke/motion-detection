@@ -109,13 +109,15 @@ export default defineComponent({
 
       const dateString = this.currentDate.format("YYYY-MM-DD");
       this.$api
-          .get("/api/motion-detected-file/calendar/" + dateString)
+          .get("/api/motion-detected-file/calendar", {
+            params: { date: dateString },
+          })
           .then((response) => {
             const data = response.data;
             if (data && data.length > 0) {
               this.videoList = data;
               this.videoUrls = data.map(
-                  (item) => import.meta.env.VITE_API_BASE_URL + "api/video/stream/" + item.file_name
+                  (item) => import.meta.env.VITE_API_BASE_URL + "/api/video/stream/" + item.file_name
               );
               this.hasVideos = true;
             }
@@ -143,7 +145,7 @@ export default defineComponent({
 <style scoped>
 .demo-app-calendar {
   width: 100%;
-  height: calc(100vh - 75px); /* Subtract header height (41px) + border (1px) + margin for safety (9px) */
+  height: calc(100vh - 60px); /* Subtract header height (41px) + border (1px) + margin for safety (9px) */
   display: flex;
   flex-direction: column;
   background-color: #1a1a1a;

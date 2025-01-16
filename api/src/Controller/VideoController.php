@@ -138,76 +138,61 @@ class VideoController extends AbstractController
          return $stream_response;
      }
 
+     #[Route('/livestream', name: 'api_livestream_video')]
+     public function reStreamLiveVideo(): Response
+     {
+         $response = new StreamedResponse(function() {
+             // Open connection to Raspberry Pi stream
+             $ch = curl_init('http://192.168.1.221:8080/video_feed');
 
-    #[Route('/recordings2/{filename}', name: 'stream_recording2')]
-    public function alternativeStreamRecording(string $filename, Request $request): Response
-    {
-        $filePath = sprintf('%s/public/recordings/%s', $this->getParameter('kernel.project_dir'), $filename);
+             // Configure CURL options
+             curl_setopt($ch, CURLOPT_RETURNTRANSFER, false);
+             curl_setopt($ch, CURLOPT_HEADER, false);
+             curl_setopt($ch, CURLOPT_WRITEFUNCTION, function($ch, $data) {
+                 echo $data;
+                 ob_flush();
+                 flush();
+                 return strlen($data);
+             });
 
-        // Validate file
-        if (!file_exists($filePath)) {
-            return new Response('File not found', Response::HTTP_NOT_FOUND);
-        }
+             // Execute request
+             curl_exec($ch);
 
-        $fileSize = filesize($filePath);
+             // Close connection
+             curl_close($ch);
+         });
 
-        // Streaming response with explicit chunk handling
-        $response = new StreamedResponse(function() use ($filePath, $fileSize, $request) {
-            // Open file handle
-            $handle = fopen($filePath, 'rb');
-            if ($handle === false) {
-                error_log("Failed to open file: $filePath");
-                return;
-            }
+         // Set headers to match the original stream
+         $response->headers->set('Content-Type', 'multipart/x-mixed-replace; boundary=frame');
+         $response->headers->set('Cache-Control', 'no-cache, no-store, must-revalidate');
+         $response->headers->set('Pragma', 'no-cache');
+         $response->headers->set('Expires', '0');
 
-            // Determine start and end for streaming
-            $start = 0;
-            $end = $fileSize - 1;
+         return $response;
+     }
 
-            // Parse range header
-            $rangeHeader = $request->headers->get('Range');
-            if ($rangeHeader) {
-                preg_match('/bytes=(\d+)-(\d+)?/', $rangeHeader, $matches);
-                $start = intval($matches[1]);
-                $end = isset($matches[2]) ? intval($matches[2]) : ($fileSize - 1);
-            }
-
-            // Seek to start position
-            fseek($handle, $start);
-
-            // Stream in larger chunks
-            $chunkSize = 1024 * 256; // 256KB chunks
-            $bytesRemaining = $end - $start + 1;
-
-            while (!feof($handle) && $bytesRemaining > 0) {
-                $readSize = min($chunkSize, $bytesRemaining);
-                $data = fread($handle, $readSize);
-
-                if ($data === false) {
-                    error_log("Failed to read file chunk");
-                    break;
-                }
-
-                echo $data;
-                $bytesRemaining -= strlen($data);
-
-                // Force output
-                if (ob_get_level() > 0) {
-                    ob_flush();
-                }
-                flush();
-            }
-
-            fclose($handle);
-        });
-
-        // Set headers
-        $response->headers->set('Content-Type', 'video/mp4');
-        $response->headers->set('Accept-Ranges', 'bytes');
-        $response->headers->set('Cache-Control', 'public, max-age=86400');
-
-        return $response;
-    }
+//     #[Route('/stream-alt', name: 'video_stream_alt')]
+//     public function streamAlt(): Response
+//     {
+//         $response = new StreamedResponse(function() {
+//             $response = $this->httpClient->request('GET', 'http://192.168.1.223/video_feed', [
+//                 'buffer' => false,
+//             ]);
+//
+//             foreach ($this->httpClient->stream($response) as $chunk) {
+//                 echo $chunk->getContent();
+//                 ob_flush();
+//                 flush();
+//             }
+//         });
+//
+//         $response->headers->set('Content-Type', 'multipart/x-mixed-replace; boundary=frame');
+//         $response->headers->set('Cache-Control', 'no-cache, no-store, must-revalidate');
+//         $response->headers->set('Pragma', 'no-cache');
+//         $response->headers->set('Expires', '0');
+//
+//         return $response;
+//     }
 
     // Debug route to check file accessibility
     #[Route('/debug/{filename}', name: 'debug_recording')]

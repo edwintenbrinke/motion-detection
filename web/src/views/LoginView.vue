@@ -34,6 +34,8 @@
 </template>
 
 <script>
+import { Preferences } from '@capacitor/preferences';
+
 export default {
   name: 'LoginForm',
   data() {
@@ -49,13 +51,25 @@ export default {
   methods: {
     async handleSubmit() {
       try {
-        this.errorMessage = ''; // Clear any previous error message
-        await this.$api.post('/api/login', {
+        this.errorMessage = '';
+        const response = await this.$api.post('/api/login', {
           username: this.username,
           password: this.password
         });
+
+        // Grab the token from the response
+        const token = response.data.token;
+
+        // Save the token securely using Capacitor Preferences
+        await Preferences.set({
+          key: 'authToken',
+          value: token
+        });
+
+        // Redirect to the calendar page
         this.$router.push('/calendar');
       } catch (error) {
+        // Handle errors
         if (error.response && error.response.status === 401) {
           this.errorMessage = 'Invalid username or password. Please try again.';
         } else {

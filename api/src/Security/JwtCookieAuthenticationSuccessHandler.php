@@ -49,7 +49,7 @@ class JwtCookieAuthenticationSuccessHandler implements AuthenticationSuccessHand
             true,
             false,  // Not HTTP only
             false,
-            Cookie::SAMESITE_LAX
+            Cookie::SAMESITE_NONE
         );
 
         $response = new JsonResponse([

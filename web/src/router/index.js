@@ -4,6 +4,9 @@ import LoginView from "@/views/LoginView.vue";
 import CalendarView from "@/views/CalendarView.vue";
 import CalendarDayView from "@/views/CalendarDayView.vue";
 import CookieHelper from "@/utils/CookieHelper.js";
+import LivestreamView from "@/views/LivestreamView.vue";
+import SettingsView from "@/views/SettingsView.vue";
+import ImageRegionView from "@/views/ImageRegionView.vue";
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -14,7 +17,34 @@ const router = createRouter({
       component: LoginView,
       meta: {
         layout: 'LoginLayout',
-        requiresAuth: false, // No authentication required for the login page
+        requiresAuth: false,
+      },
+    },
+    {
+      path: '/livestream',
+      name: 'livestream',
+      component: LivestreamView,
+      meta: {
+        layout: 'CalendarLayout',
+        requiresAuth: false,
+      },
+    },
+    {
+      path: '/settings',
+      name: 'settings',
+      component: SettingsView,
+      meta: {
+        layout: 'CalendarLayout',
+        requiresAuth: false,
+      },
+    },
+    {
+      path: '/settings/image-region',
+      name: 'settingsImageRegion',
+      component: ImageRegionView,
+      meta: {
+        layout: 'ImageRegionSelectorLayout',
+        requiresAuth: false,
       },
     },
     {
@@ -23,7 +53,7 @@ const router = createRouter({
       component: CalendarView,
       meta: {
         layout: 'CalendarLayout',
-        requiresAuth: true, // Authentication required
+        requiresAuth: false,
       },
     },
     {
@@ -32,7 +62,7 @@ const router = createRouter({
       component: CalendarDayView,
       meta: {
         layout: 'CalendarLayout',
-        requiresAuth: true, // Authentication required
+        requiresAuth: false,
       },
     },
   ],

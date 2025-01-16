@@ -20,6 +20,22 @@ trait ValidationTrait
         $this->validator = $validator;
     }
 
+    protected function serializeEntityArrayToDTOs(array $data, string $format = 'json'): array
+    {
+        $result = [];
+        foreach ($data as $datum) {
+            $serialized = $this->serializer->normalize($datum);
+            $result[] = $this->serializer->denormalize($serialized, $format);
+        }
+        return $result;
+    }
+
+    protected function serializeEntityToDTO($data, string $format = 'json'): object
+    {
+        $serialized = $this->serializer->normalize($data);
+        return $this->serializer->denormalize($serialized, $format);
+    }
+
     protected function validateRequest(Request $request, string $class)
     {
         try

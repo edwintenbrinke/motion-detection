@@ -5,23 +5,23 @@
         <div class="splide__track">
           <ul class="splide__list">
             <li
-              v-for="(videoUrl, index) in videoUrls"
-              :key="videoUrl"
-              class="splide__slide"
+                v-for="(videoUrl, index) in videoUrls"
+                :key="videoUrl"
+                class="splide__slide"
             >
               <div class="video-wrapper">
                 <video
-                  ref="videoPlayers"
-                  controls
-                  playsinline
-                  :data-index="index"
-                  class="video-player"
-                  @play="pauseOtherVideos(index)"
+                    ref="videoPlayers"
+                    controls
+                    playsinline
+                    :data-index="index"
+                    class="video-player"
+                    @play="pauseOtherVideos(index)"
                 >
                   <source
-                    v-if="isVideoVisible(index)"
-                    :src="videoUrl"
-                    type="video/mp4"
+                      v-if="isVideoVisible(index)"
+                      :src="authenticatedVideoUrls[index]"
+                      type="video/mp4"
                   >
                 </video>
               </div>
@@ -54,6 +54,7 @@ export default {
   data() {
     return {
       videoUrls: [],
+      authenticatedVideoUrls: [],
       splideInstance: null,
       isReady: false,
       currentVideoIndex: 0,
@@ -64,11 +65,13 @@ export default {
   watch: {
     apiResult: {
       immediate: true,
-      handler(newVal) {
+      async handler(newVal) {
         if (newVal && newVal.length) {
           this.videoUrls = [...newVal];
           this.currentVideoIndex = 0;
           this.loadedVideos.clear();
+
+          await this.initializeAuthenticatedUrls();
 
           this.$nextTick(() => {
             this.initializeSlider();
@@ -88,6 +91,27 @@ export default {
     }
   },
   methods: {
+    async initializeAuthenticatedUrls() {
+      try {
+        // Create authenticated URLs using Blob URLs
+        this.authenticatedVideoUrls = await Promise.all(
+            this.videoUrls.map(async (url) => {
+              try {
+                const response = await this.$api.get(url, {
+                  responseType: 'blob'
+                });
+
+                return URL.createObjectURL(response.data);
+              } catch (error) {
+                console.error(`Error fetching video ${url}:`, error);
+                return url; // Fallback to original URL if fetch fails
+              }
+            })
+        );
+      } catch (error) {
+        console.error('Error initializing authenticated URLs:', error);
+      }
+    },
     async initializeSlider() {
       if (this.splideInstance) {
         this.splideInstance.destroy();
@@ -133,12 +157,10 @@ export default {
       this.currentVideoIndex = newIndex;
       this.preloadAdjacentVideos(newIndex);
 
-      // Clear any existing autoplay timeout
       if (this.autoplayTimeout) {
         clearTimeout(this.autoplayTimeout);
       }
 
-      // Set timeout to play the video after it's loaded
       this.autoplayTimeout = setTimeout(() => {
         this.playCurrentVideo();
       }, 100);
@@ -146,18 +168,17 @@ export default {
     playCurrentVideo() {
       if (this.$refs.videoPlayers && this.$refs.videoPlayers[this.currentVideoIndex]) {
         const video = this.$refs.videoPlayers[this.currentVideoIndex];
-        if (video.readyState >= 2) { // Check if video is loaded enough to play
+        if (video.readyState >= 2) {
           video.play()
-            .catch(error => {
-              console.warn('Autoplay prevented:', error);
-            });
-        } else {
-          // If video isn't loaded yet, wait for it
-          video.addEventListener('loadeddata', () => {
-            video.play()
               .catch(error => {
                 console.warn('Autoplay prevented:', error);
               });
+        } else {
+          video.addEventListener('loadeddata', () => {
+            video.play()
+                .catch(error => {
+                  console.warn('Autoplay prevented:', error);
+                });
           }, { once: true });
         }
       }
@@ -182,7 +203,6 @@ export default {
       const index = this.videoUrls.findIndex(videoUrl => videoUrl.includes(url));
       if (index !== -1 && this.splideInstance) {
         this.splideInstance.go(index);
-        // Set timeout to allow the slide change to complete
         setTimeout(() => {
           this.playCurrentVideo();
         }, 100);
@@ -211,8 +231,15 @@ export default {
     if (this.autoplayTimeout) {
       clearTimeout(this.autoplayTimeout);
     }
+    // Revoke Blob URLs to prevent memory leaks
+    this.authenticatedVideoUrls.forEach(url => {
+      if (url.startsWith('blob:')) {
+        URL.revokeObjectURL(url);
+      }
+    });
     this.apiResult = [];
     this.videoUrls = [];
+    this.authenticatedVideoUrls = [];
     this.loadedVideos.clear();
     if (this.splideInstance) {
       this.splideInstance.destroy();
