@@ -1,13 +1,23 @@
-// stores/loadingStore.js
 import { defineStore } from 'pinia';
+import {Preferences} from "@capacitor/preferences";
 
-export const useLoadingStore = defineStore('initialize', {
+export const useInitializeStore = defineStore('initialize', {
     state: () => ({
-        settings: [],
-        user: []
+        settings: null,
+        user: null
     }),
     actions: {
-        async getInitializingInfo() {
+        async getInitializingInfo(force = false) {
+            const { value: token } = await Preferences.get({ key: 'authToken' });
+            if (!token) {
+                return;
+            }
+
+            if (force === false && (this.getUser() !== null && this.getSettings() !== null))
+            {
+                return
+            }
+
             try {
                 const response = await this.$api.get('/api/user/initialize')
                 this.settings = response.data.settings
@@ -16,8 +26,12 @@ export const useLoadingStore = defineStore('initialize', {
                 console.error('Failed to fetch settings:', error)
             }
         },
-        stopLoading() {
-            this.isLoading = false;
+        getUser() {
+            return this.user;
         },
+        getSettings() {
+            return this.settings;
+        }
     },
+    persist: true,
 });

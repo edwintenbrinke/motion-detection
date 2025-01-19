@@ -54,11 +54,12 @@ export default {
   data() {
     return {
       videoUrls: [],
-      authenticatedVideoUrls: [],
+      authenticatedVideoUrls: {}, // Use an object to store fetched URLs
       splideInstance: null,
       isReady: false,
       currentVideoIndex: 0,
       loadedVideos: new Set(),
+      fetchingVideos: new Set(),
       autoplayTimeout: null,
     };
   },
@@ -70,8 +71,7 @@ export default {
           this.videoUrls = [...newVal];
           this.currentVideoIndex = 0;
           this.loadedVideos.clear();
-
-          await this.initializeAuthenticatedUrls();
+          this.authenticatedVideoUrls = {};
 
           this.$nextTick(() => {
             this.initializeSlider();
@@ -91,25 +91,24 @@ export default {
     }
   },
   methods: {
-    async initializeAuthenticatedUrls() {
-      try {
-        // Create authenticated URLs using Blob URLs
-        this.authenticatedVideoUrls = await Promise.all(
-            this.videoUrls.map(async (url) => {
-              try {
-                const response = await this.$api.get(url, {
-                  responseType: 'blob'
-                });
+    async fetchAuthenticatedUrl(index) {
+      if (this.authenticatedVideoUrls[index] || this.fetchingVideos.has(index)) {
+        return; // Skip if already fetched or in progress
+      }
 
-                return URL.createObjectURL(response.data);
-              } catch (error) {
-                console.error(`Error fetching video ${url}:`, error);
-                return url; // Fallback to original URL if fetch fails
-              }
-            })
-        );
+      this.fetchingVideos.add(index); // Mark this video as being fetched
+      try {
+        const url = this.videoUrls[index];
+        const response = await this.$api.get(url, {
+          responseType: 'blob'
+        });
+        const blobUrl = URL.createObjectURL(response.data);
+        this.authenticatedVideoUrls[index] = blobUrl;
+        // this.$set(this.authenticatedVideoUrls, index, blobUrl);
       } catch (error) {
-        console.error('Error initializing authenticated URLs:', error);
+        console.error(`Error fetching video ${this.videoUrls[index]}:`, error);
+      } finally {
+        this.fetchingVideos.delete(index); // Remove from fetching set
       }
     },
     async initializeSlider() {
@@ -165,6 +164,28 @@ export default {
         this.playCurrentVideo();
       }, 100);
     }, 150),
+    preloadAdjacentVideos(currentIndex) {
+      const preloadIndexes = [
+        currentIndex
+      ].filter(index => index >= 0 && index < this.videoUrls.length);
+
+      preloadIndexes.forEach(index => {
+        this.loadedVideos.add(index);
+        this.fetchAuthenticatedUrl(index); // Fetch video only when preloading
+      });
+    },
+    isVideoVisible(index) {
+      return this.loadedVideos.has(index) && !!this.authenticatedVideoUrls[index];
+    },
+    moveToVideo(url) {
+      const index = this.videoUrls.findIndex(videoUrl => videoUrl.includes(url));
+      if (index !== -1 && this.splideInstance) {
+        this.splideInstance.go(index);
+        setTimeout(() => {
+          this.playCurrentVideo();
+        }, 100);
+      }
+    },
     playCurrentVideo() {
       if (this.$refs.videoPlayers && this.$refs.videoPlayers[this.currentVideoIndex]) {
         const video = this.$refs.videoPlayers[this.currentVideoIndex];
@@ -181,31 +202,6 @@ export default {
                 });
           }, { once: true });
         }
-      }
-    },
-    preloadAdjacentVideos(currentIndex) {
-      const preloadIndexes = [
-        currentIndex - 2,
-        currentIndex - 1,
-        currentIndex,
-        currentIndex + 1,
-        currentIndex + 2
-      ].filter(index => index >= 0 && index < this.videoUrls.length);
-
-      preloadIndexes.forEach(index => {
-        this.loadedVideos.add(index);
-      });
-    },
-    isVideoVisible(index) {
-      return this.loadedVideos.has(index);
-    },
-    moveToVideo(url) {
-      const index = this.videoUrls.findIndex(videoUrl => videoUrl.includes(url));
-      if (index !== -1 && this.splideInstance) {
-        this.splideInstance.go(index);
-        setTimeout(() => {
-          this.playCurrentVideo();
-        }, 100);
       }
     },
     pauseOtherVideos(activeIndex) {
@@ -231,16 +227,11 @@ export default {
     if (this.autoplayTimeout) {
       clearTimeout(this.autoplayTimeout);
     }
-    // Revoke Blob URLs to prevent memory leaks
-    this.authenticatedVideoUrls.forEach(url => {
+    Object.values(this.authenticatedVideoUrls).forEach(url => {
       if (url.startsWith('blob:')) {
         URL.revokeObjectURL(url);
       }
     });
-    this.apiResult = [];
-    this.videoUrls = [];
-    this.authenticatedVideoUrls = [];
-    this.loadedVideos.clear();
     if (this.splideInstance) {
       this.splideInstance.destroy();
     }

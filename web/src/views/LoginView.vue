@@ -35,6 +35,7 @@
 
 <script>
 import { Preferences } from '@capacitor/preferences';
+import { useInitializeStore } from '@/stores/initialize'; // Import the Pinia store
 
 export default {
   name: 'LoginForm',
@@ -42,7 +43,7 @@ export default {
     return {
       username: 'admin',
       password: 'admin',
-      errorMessage: '' // State to hold error message
+      errorMessage: '', // State to hold error message
     };
   },
   mounted() {
@@ -50,11 +51,12 @@ export default {
   },
   methods: {
     async handleSubmit() {
+      const initStore = useInitializeStore(); // Access the store
       try {
         this.errorMessage = '';
         const response = await this.$api.post('/api/login', {
           username: this.username,
-          password: this.password
+          password: this.password,
         });
 
         // Grab the token from the response
@@ -63,8 +65,11 @@ export default {
         // Save the token securely using Capacitor Preferences
         await Preferences.set({
           key: 'authToken',
-          value: token
+          value: token,
         });
+
+        // Call the Pinia store function
+        await initStore.getInitializingInfo(true);
 
         // Redirect to the calendar page
         this.$router.push('/calendar');
@@ -77,8 +82,8 @@ export default {
         }
         console.error('Login failed:', error.response?.data || error.message);
       }
-    }
-  }
+    },
+  },
 };
 </script>
 

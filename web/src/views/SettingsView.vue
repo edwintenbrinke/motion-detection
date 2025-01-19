@@ -54,6 +54,7 @@
 
 <script>
 import {Preferences} from "@capacitor/preferences";
+import {useInitializeStore} from "@/stores/initialize.js";
 
 export default {
   name: 'SettingsPage',
@@ -68,12 +69,8 @@ export default {
     }
   },
   async created() {
-    try {
-      const response = await this.$api.get('/api/user/settings')
-      this.settings = response.data
-    } catch (error) {
-      console.error('Failed to fetch settings:', error)
-    }
+    const initStore = useInitializeStore();
+    this.settings = initStore.getSettings();
   },
   methods: {
     handleImageRegion() {

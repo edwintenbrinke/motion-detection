@@ -7,6 +7,7 @@ import CookieHelper from "@/utils/CookieHelper.js";
 import LivestreamView from "@/views/LivestreamView.vue";
 import SettingsView from "@/views/SettingsView.vue";
 import ImageRegionView from "@/views/ImageRegionView.vue";
+import { useInitializeStore } from '@/stores/initialize'; // Import the Pinia store
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -26,7 +27,7 @@ const router = createRouter({
       component: LivestreamView,
       meta: {
         layout: 'CalendarLayout',
-        requiresAuth: false,
+        requiresAuth: true,
       },
     },
     {
@@ -35,7 +36,7 @@ const router = createRouter({
       component: SettingsView,
       meta: {
         layout: 'CalendarLayout',
-        requiresAuth: false,
+        requiresAuth: true,
       },
     },
     {
@@ -44,7 +45,7 @@ const router = createRouter({
       component: ImageRegionView,
       meta: {
         layout: 'ImageRegionSelectorLayout',
-        requiresAuth: false,
+        requiresAuth: true,
       },
     },
     {
@@ -53,7 +54,7 @@ const router = createRouter({
       component: CalendarView,
       meta: {
         layout: 'CalendarLayout',
-        requiresAuth: false,
+        requiresAuth: true,
       },
     },
     {
@@ -62,18 +63,20 @@ const router = createRouter({
       component: CalendarDayView,
       meta: {
         layout: 'CalendarLayout',
-        requiresAuth: false,
+        requiresAuth: true,
       },
     },
   ],
 });
 
+
 // Middleware to check authentication before each route
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   // Check if the route requires authentication
   if (to.meta.requiresAuth) {
-    const username = CookieHelper.getCookie('username'); // Get the 'username' cookie
+    await useInitializeStore()?.getInitializingInfo();
 
+    const username = CookieHelper.getCookie('username'); // Get the 'username' cookie
     if (!username) {
       // Redirect to login page if no username cookie is found
       next({ path: '/', replace: true }); // Ensure route changes

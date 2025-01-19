@@ -1,5 +1,5 @@
 <template>
-  <LivestreamVideo stream-url="http://localhost/api/video/livestream" />
+  <LivestreamVideo api-base-url="http://localhost" />
 </template>
 
 <script>

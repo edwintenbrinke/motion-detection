@@ -10,6 +10,7 @@ use App\Message\ProcessFileMessage;
 use App\Service\FileHandler;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpClient\HttpClient;
 use Symfony\Component\HttpFoundation\File\File;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -21,8 +22,9 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
 
- #[Route('/api/video')]
+#[Route('/api/video')]
 class VideoController extends AbstractController
 {
      #[Route('/upload', name: 'api_video_upload', methods: ['POST'])]
@@ -171,28 +173,27 @@ class VideoController extends AbstractController
          return $response;
      }
 
-//     #[Route('/stream-alt', name: 'video_stream_alt')]
-//     public function streamAlt(): Response
-//     {
-//         $response = new StreamedResponse(function() {
-//             $response = $this->httpClient->request('GET', 'http://192.168.1.223/video_feed', [
-//                 'buffer' => false,
-//             ]);
-//
-//             foreach ($this->httpClient->stream($response) as $chunk) {
-//                 echo $chunk->getContent();
-//                 ob_flush();
-//                 flush();
-//             }
-//         });
-//
-//         $response->headers->set('Content-Type', 'multipart/x-mixed-replace; boundary=frame');
-//         $response->headers->set('Cache-Control', 'no-cache, no-store, must-revalidate');
-//         $response->headers->set('Pragma', 'no-cache');
-//         $response->headers->set('Expires', '0');
-//
-//         return $response;
-//     }
+     #[Route('/stream-alt', name: 'video_stream_alt')]
+     public function streamAlt(HttpClientInterface $client): Response
+     {
+         return new StreamedResponse(function() use ($client) {
+             $response = $client->request(
+                 'GET',
+                 'http://192.168.1.221:8080/video_feed',
+                 ['buffer' => false]
+             );
+
+             foreach ($client->stream($response) as $chunk) {
+                 echo $chunk->getContent();
+                 flush();
+             }
+         }, 200, [
+             'Content-Type' => 'multipart/x-mixed-replace; boundary=frame',
+             'Cache-Control' => 'no-cache, no-store, must-revalidate',
+             'Pragma' => 'no-cache',
+             'Expires' => '0',
+         ]);
+     }
 
     // Debug route to check file accessibility
     #[Route('/debug/{filename}', name: 'debug_recording')]

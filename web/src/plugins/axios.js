@@ -12,7 +12,7 @@ const apiClient = axios.create({
 
 let loadingStore = null;
 
-export default {
+const axiosPlugin = {
     install: (app) => {
         // Initialize the store after Pinia is installed
         loadingStore = useLoadingStore();
@@ -78,7 +78,6 @@ export default {
                         router.push('/');
                     }
                 } else if (error.request) {
-                    // Log request information if no response was received
                     console.error('[Axios Error] No response received:', JSON.stringify({
                         url: error.config?.url,
                         method: error.config?.method,
@@ -88,7 +87,6 @@ export default {
                     }));
                     console.error('[Axios Error] This might be a network issue or a CORS error. Check the browser console for more details.');
                 } else {
-                    // Log generic errors
                     console.error('[Axios Error] General error:', JSON.stringify({ message: error.message }));
                 }
 
@@ -99,3 +97,7 @@ export default {
         app.config.globalProperties.$api = apiClient;
     },
 };
+
+// Export both the Axios instance and the plugin
+export default axiosPlugin;
+export { apiClient };
