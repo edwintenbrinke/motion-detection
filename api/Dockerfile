@@ -10,8 +10,6 @@ RUN apt-get update && apt-get install -y \
     libfreetype6-dev \
     libzip-dev \
     libpq-dev \
-    libonig-dev \
-    libxml2-dev \
     unzip \
     curl \
     ffmpeg \
