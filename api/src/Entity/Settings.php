@@ -35,6 +35,9 @@ class Settings
     private array $detection_area_points;
 
     #[ORM\Column]
+    private string $placeholder_image_url;
+
+    #[ORM\Column]
     private \DateTimeImmutable $created_at;
 
     #[ORM\Column]
@@ -124,6 +127,16 @@ class Settings
     public function setDetectionAreaPoints(array $detection_area_points): void
     {
         $this->detection_area_points = $detection_area_points;
+    }
+
+    public function getPlaceholderImageUrl(): string
+    {
+        return $this->placeholder_image_url;
+    }
+
+    public function setPlaceholderImageUrl(string $placeholder_image_url): void
+    {
+        $this->placeholder_image_url = $placeholder_image_url;
     }
 
     public function getCreatedAt(): \DateTimeImmutable

@@ -1,5 +1,5 @@
 <template>
-  <image-region-selector image-url="http://localhost/placeholder.png" />
+  <image-region-selector/>
 </template>
 
 <script>

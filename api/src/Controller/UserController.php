@@ -95,4 +95,21 @@ class UserController extends AbstractController
 
         return $this->json(['message' => 'Settings updated.']);
     }
+
+     #[Route('/settings/{id}/placeholder-image', name: 'api_user_settings_placeholder_image_set', methods: ['POST'])]
+    public function postUserSettingsPlaceholderImage(Request $request, EntityManagerInterface $entity_manager, Settings $settings): Response
+    {
+        /** @var User $user */
+        $user = $this->getUser();
+        if ($user->getId() !== $settings->getUser()->getId())
+        {
+            throw $this->createAccessDeniedException();
+        }
+
+        // create new placeholder image
+        $settings->setPlaceholderImageUrl('/placeholders/id/placeholder.jpg');
+        $entity_manager->flush();
+
+        return $this->json(['message' => 'Settings updated.']);
+    }
 }

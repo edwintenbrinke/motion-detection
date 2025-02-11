@@ -23,7 +23,7 @@ const streamError = ref(null)
 const isStreamActive = ref(false)
 
 const startStream = () => {
-  streamUrl.value = `/api/video/stream-alt?t=${Date.now()}`
+  streamUrl.value = import.meta.env.VITE_API_BASE_URL + `/api/video/stream-alt?t=${Date.now()}`
   isStreamActive.value = true
 }
 
@@ -56,6 +56,10 @@ onUnmounted(() => {
 .video-container {
   width: 100%;
   margin: 0 auto;
+}
+
+img {
+  scale: -1;
 }
 
 .video-stream {

@@ -8,4 +8,5 @@ be able to view rasp livestream from web/app\
 settings for motion detection threshhold etc? file detention etc etc\
 fingerprint auth on app (https://claude.ai/chat/7d04052c-77b0-4388-9661-dbe98149e49d)
 
- 
+ add database to android app? store motion day entries & get them with since date\
+update placeholder image

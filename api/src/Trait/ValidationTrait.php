@@ -25,7 +25,15 @@ trait ValidationTrait
         $result = [];
         foreach ($data as $datum) {
             $serialized = $this->serializer->normalize($datum);
-            $result[] = $this->serializer->denormalize($serialized, $format);
+            $return = [
+                'id' => $serialized['id'],
+                'file_name' => $serialized['file_name'],
+                'type' => $serialized['type'],
+                'created_at' => $serialized['created_at'],
+            ];
+            $result[] = $return;
+//            $result[] = $this->serializer->denormalize($serialized, $format);
+//            $result[] = $this->serializeEntityToDTO($datum, $format);
         }
         return $result;
     }
@@ -67,27 +75,26 @@ trait ValidationTrait
 
         // Validate the object
         $errors = $this->validator->validate($entity);
+        if (count($errors) !== 0) {
+            // Collect error messages for validation errors
+            $error_messages = [];
+            foreach ($errors as $error) {
+                $error_messages[] = [
+                    'property' => $error->getPropertyPath(),
+                    'message' => $error->getMessage(),
+                ];
+            }
 
-        if (count($errors) === 0) {
-            // No validation errors, return the validated entity
-            return $entity;
+            // Return validation errors
+            return new JsonResponse([
+                'status' => 'error',
+                'message' => 'Validation failed',
+                'errors' => $error_messages,
+            ], Response::HTTP_BAD_REQUEST);
         }
 
-        // Collect error messages for validation errors
-        $error_messages = [];
-        foreach ($errors as $error) {
-            $error_messages[] = [
-                'property' => $error->getPropertyPath(),
-                'message' => $error->getMessage(),
-            ];
-        }
-
-        // Return validation errors
-        return new JsonResponse([
-            'status' => 'error',
-            'message' => 'Validation failed',
-            'errors' => $error_messages,
-        ], Response::HTTP_BAD_REQUEST);
+        // No validation errors, return the validated entity
+        return $entity;
     }
 
 

@@ -31,6 +31,15 @@ export const useInitializeStore = defineStore('initialize', {
         },
         getSettings() {
             return this.settings;
+        },
+        getDetectionAreaPoints() {
+            return this.settings.detection_area_points
+        },
+        getImageUrl() {
+            return this.settings.placeholder_image_url;
+        },
+        updateDetectionAreaPoints(points) {
+            this.settings.detection_area_points = points;
         }
     },
     persist: true,

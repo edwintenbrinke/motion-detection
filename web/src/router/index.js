@@ -7,7 +7,8 @@ import CookieHelper from "@/utils/CookieHelper.js";
 import LivestreamView from "@/views/LivestreamView.vue";
 import SettingsView from "@/views/SettingsView.vue";
 import ImageRegionView from "@/views/ImageRegionView.vue";
-import { useInitializeStore } from '@/stores/initialize'; // Import the Pinia store
+import { useInitializeStore } from '@/stores/initialize';
+import {Preferences} from "@capacitor/preferences"; // Import the Pinia store
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -76,8 +77,9 @@ router.beforeEach(async (to, from, next) => {
   if (to.meta.requiresAuth) {
     await useInitializeStore()?.getInitializingInfo();
 
+    const { value: token } = await Preferences.get({ key: 'authToken' });
     const username = CookieHelper.getCookie('username'); // Get the 'username' cookie
-    if (!username) {
+    if (!username && !token) {
       // Redirect to login page if no username cookie is found
       next({ path: '/', replace: true }); // Ensure route changes
     } else {
