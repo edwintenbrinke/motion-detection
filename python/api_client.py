@@ -15,7 +15,7 @@ class APIClient:
         try:
             response = requests.post(
                 f"{self.base_url}{Config.LOGIN_ENDPOINT}",
-                json=Config.AUTH_CRE    DENTIALS
+                json=Config.AUTH_CREDENTIALS
             )
             response.raise_for_status()
             data = response.json()

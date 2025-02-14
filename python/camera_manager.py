@@ -17,6 +17,7 @@ class CameraManager:
         self.frame_buffer = None
         self.buffer_lock = threading.Lock()
         self.stream_id = 0
+        self.motion_detector = None  # Add this line
 
     def initialize(self):
         """Initialize the camera"""
@@ -26,6 +27,10 @@ class CameraManager:
         except Exception as e:
             print(f"Failed to initialize camera: {str(e)}")
             return False
+
+    def set_motion_detector(self, motion_detector):
+        """Set the motion detector instance"""
+        self.motion_detector = motion_detector
 
     def configure(self, config_name):
         """Configure camera with specific settings"""
@@ -80,7 +85,13 @@ class CameraManager:
             self.picam2.capture_file(buffer, format='jpeg')
             frame_data = buffer.getvalue()
             buffer.close()
+
+            # Process frame for motion detection
+            if self.motion_detector:
+                self.motion_detector.process_frame(frame_data)
+
             return frame_data
         except Exception as e:
             print(f"Error capturing frame: {str(e)}")
             return None
+

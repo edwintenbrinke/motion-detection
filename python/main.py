@@ -5,6 +5,8 @@ from video_handler import VideoHandler
 from web_server import WebServer
 from config import Config
 
+#pip install flask picamera2 opencv-python requests numpy
+
 def main():
     try:
         # Initialize components
@@ -13,14 +15,21 @@ def main():
             print("Failed to initialize camera. Exiting.")
             sys.exit(1)
 
+        # Initialize video handler first
+        video_handler = VideoHandler(camera_manager.picam2)
+
+        # Initialize motion detector with video handler
+        motion_detector = MotionDetector(video_handler)
+
+        # Connect motion detector to camera manager
+        camera_manager.set_motion_detector(motion_detector)
+
         # Configure camera with default settings
         if not camera_manager.configure(Config.DEFAULT_CONFIG):
             print("Failed to configure camera. Exiting.")
             sys.exit(1)
 
-        # Initialize other components
-        video_handler = VideoHandler(camera_manager.picam2)
-        motion_detector = MotionDetector(video_handler)
+        # Initialize web server
         web_server = WebServer(camera_manager)
 
         # Start web server
