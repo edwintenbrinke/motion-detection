@@ -48,7 +48,7 @@ motion_state = {
 }
 
 # API endpoint
-API_ENDPOINT = "https://192.168.1.130/api/video/upload"
+API_ENDPOINT = "http://192.168.1.130/api/video/upload"
 
 def initialize_camera():
     global picam2
