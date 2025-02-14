@@ -49,7 +49,7 @@ class MotionDetector:
 
             # Motion detected
             if motion_score > self.settings_manager.motion_threshold:
-                print(f"Motion detected! Score: {motion_score}")
+                # print(f"Motion detected! Score: {motion_score}")
                 self.state['detected'] = True
                 self.state['last_motion_time'] = current_time
 

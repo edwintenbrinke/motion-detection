@@ -27,7 +27,7 @@ class CameraManager:
             self.stream_active = True
             self.should_run = True
             # Start the continuous capture thread
-            self.motion_detection_thread = Thread(target=self._continuous_capture, daemon=True)
+            self.motion_detection_thread = threading.Thread(target=self._continuous_capture, daemon=True)
             self.motion_detection_thread.start()
             return True
         except Exception as e:
