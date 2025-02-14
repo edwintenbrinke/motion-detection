@@ -10,11 +10,9 @@ class MotionDetector:
         self.state = {
             'detected': False,
             'recording': False,
-            'last_motion_time': 0,
             'recording_start_time': 0,
             'scheduled_stop_time': 0,
-            'output_file': None,
-            'encoder': None
+            'last_motion_time': 0
         }
         self.prev_frame = None
 
@@ -36,32 +34,53 @@ class MotionDetector:
 
     def detect_motion(self, current_frame):
         """Detect motion between frames"""
-        current_time = time.time()
+        try:
+            current_time = time.time()
 
-        # Check max duration
-        if (self.state['recording'] and
-            (current_time - self.state['recording_start_time'] >= Config.MAX_RECORDING_DURATION)):
-            print(f"Max duration ({Config.MAX_RECORDING_DURATION}s) reached")
-            self.video_handler.stop_recording()
-            return
+            # Compare frames
+            if current_frame.shape != self.prev_frame.shape:
+                print("Frame shape mismatch")
+                return False
 
-        # Compare frames
-        if current_frame.shape != self.prev_frame.shape:
-            return False
+            delta_frame = cv2.absdiff(self.prev_frame, current_frame)
+            thresh = cv2.threshold(delta_frame, 25, 255, cv2.THRESH_BINARY)[1]
+            motion_score = cv2.countNonZero(thresh)
 
-        delta_frame = cv2.absdiff(self.prev_frame, current_frame)
-        thresh = cv2.threshold(delta_frame, 25, 255, cv2.THRESH_BINARY)[1]
-        motion_score = cv2.countNonZero(thresh)
+            # Motion detected
+            if motion_score > Config.MOTION_THRESHOLD:
+                print(f"Motion detected! Score: {motion_score}")
+                self.state['detected'] = True
+                self.state['last_motion_time'] = current_time
 
-        if motion_score > Config.MOTION_THRESHOLD:
-            self.state['detected'] = True
-            if not self.state['recording']:
-                self.video_handler.start_recording()
-            else:
-                self.state['scheduled_stop_time'] = min(
-                    self.state['recording_start_time'] + Config.MAX_RECORDING_DURATION,
-                    current_time + Config.RECORDING_EXTENSION
-                )
-        elif self.state['recording']:
-            if current_time >= self.state['scheduled_stop_time']:
-                self.video_handler.stop_recording()
+                if not self.state['recording']:
+                    # Start new recording
+                    print("Starting new recording")
+                    self.video_handler.start_recording()
+                    self.state['recording'] = True
+                    self.state['recording_start_time'] = current_time
+                    self.state['scheduled_stop_time'] = current_time + Config.RECORDING_EXTENSION
+                else:
+                    # Already recording, extend the stop time
+                    new_stop_time = current_time + Config.RECORDING_EXTENSION
+                    max_stop_time = self.state['recording_start_time'] + Config.MAX_RECORDING_DURATION
+
+                    # Don't extend beyond max duration
+                    self.state['scheduled_stop_time'] = min(new_stop_time, max_stop_time)
+
+            # Check if we should stop recording
+            if self.state['recording']:
+                # Stop if we've reached max duration
+                if current_time - self.state['recording_start_time'] >= Config.MAX_RECORDING_DURATION:
+                    print(f"Stopping recording - reached max duration of {Config.MAX_RECORDING_DURATION}s")
+                    self.video_handler.stop_recording()
+                    self.state['recording'] = False
+                    self.state['detected'] = False
+                # Stop if no motion for RECORDING_EXTENSION seconds
+                elif current_time >= self.state['scheduled_stop_time']:
+                    print(f"Stopping recording - no motion for {Config.RECORDING_EXTENSION}s")
+                    self.video_handler.stop_recording()
+                    self.state['recording'] = False
+                    self.state['detected'] = False
+
+        except Exception as e:
+            print(f"Error in detect_motion: {str(e)}")

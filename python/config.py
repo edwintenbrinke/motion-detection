@@ -1,5 +1,5 @@
 class Config:
-    BASE_URL = "http://192.168.1.130"
+    BASE_URL = "https://api.edwintenbrinke.nl"
     LOGIN_ENDPOINT = "/api/login"
     UPLOAD_ENDPOINT = "/api/video/upload"
     AUTH_CREDENTIALS = {
