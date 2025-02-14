@@ -32,7 +32,7 @@ class WebServer:
 
     def _generate_frames(self):
         while self.camera_manager.stream_active:
-            frame_data = self.camera_manager.capture_frame()
+            frame_data = self.camera_manager.get_latest_frame()
             if frame_data:
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n\r\n' + frame_data + b'\r\n')

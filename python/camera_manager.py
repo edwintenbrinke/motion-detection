@@ -1,6 +1,7 @@
 from picamera2 import Picamera2
 from picamera2.encoders import H264Encoder
 from picamera2.outputs import FileOutput
+from queue import Queue
 import cv2
 import numpy as np
 import time
@@ -11,87 +12,92 @@ from config import Config
 
 class CameraManager:
     def __init__(self):
-        self.picam2 = None
-        self.current_config = Config.DEFAULT_CONFIG
         self.stream_active = False
-        self.frame_buffer = None
-        self.buffer_lock = threading.Lock()
-        self.stream_id = 0
-        self.motion_detector = None  # Add this line
+        self.motion_detector = None
+        self.picam2 = None
+        self.stream_id = None
+        self.frame_queue = Queue(maxsize=2)  # Buffer for latest frame
+        self.motion_detection_thread = None
+        self.should_run = False
 
     def initialize(self):
-        """Initialize the camera"""
         try:
+            from picamera2 import Picamera2
             self.picam2 = Picamera2()
+            self.stream_active = True
+            self.should_run = True
+            # Start the continuous capture thread
+            self.motion_detection_thread = Thread(target=self._continuous_capture, daemon=True)
+            self.motion_detection_thread.start()
             return True
         except Exception as e:
             print(f"Failed to initialize camera: {str(e)}")
             return False
 
-    def set_motion_detector(self, motion_detector):
-        """Set the motion detector instance"""
-        self.motion_detector = motion_detector
+    def set_motion_detector(self, detector):
+        self.motion_detector = detector
+
+    def _continuous_capture(self):
+        """Continuously capture frames and process them for motion detection"""
+        while self.should_run:
+            try:
+                frame_data = self.capture_frame()
+                if frame_data:
+                    # Update the frame queue with the latest frame
+                    if self.frame_queue.full():
+                        self.frame_queue.get()  # Remove old frame
+                    self.frame_queue.put(frame_data)
+
+                    # Process frame for motion detection
+                    if self.motion_detector:
+                        self.motion_detector.process_frame(frame_data)
+
+                time.sleep(1/30)  # Limit to ~30 FPS
+            except Exception as e:
+                print(f"Error in continuous capture: {str(e)}")
+                time.sleep(1)  # Wait before retrying
+
+    def capture_frame(self):
+        """Capture a single frame from the camera"""
+        try:
+            if not self.stream_active:
+                return None
+
+            # Capture frame from picamera2
+            frame = self.picam2.capture_array()
+            # Convert to BGR format for OpenCV processing
+            frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            # Encode as JPEG
+            _, buffer = cv2.imencode('.jpg', frame_bgr)
+            return buffer.tobytes()
+        except Exception as e:
+            print(f"Error capturing frame: {str(e)}")
+            return None
 
     def configure(self, config_name):
-        """Configure camera with specific settings"""
-        if config_name not in Config.CAMERA_CONFIGS:
-            return False
-
         try:
-            if self.stream_active:
-                self.stop_stream()
-
-            config = Config.CAMERA_CONFIGS[config_name]
-            camera_config = self.picam2.create_video_configuration(
-                main={"size": config['size']},
-                controls={"FrameRate": config['fps']}
-            )
-            self.picam2.configure(camera_config)
-            self.current_config = config_name
-            self.stream_id += 1
-            self.start_stream()
+            # Apply camera configuration
+            self.picam2.configure(config_name)
+            self.picam2.start()
+            self.stream_id = time.time()
             return True
         except Exception as e:
             print(f"Error configuring camera: {str(e)}")
             return False
 
-    def start_stream(self):
-        """Start the camera stream"""
-        if not self.stream_active:
-            try:
-                self.stream_active = True
-                self.picam2.start()
-                return True
-            except Exception as e:
-                print(f"Error starting stream: {str(e)}")
-                self.stream_active = False
-                return False
-
-    def stop_stream(self):
-        """Stop the camera stream"""
-        if self.stream_active:
-            try:
-                self.stream_active = False
-                self.picam2.stop()
-                return True
-            except Exception as e:
-                print(f"Error stopping stream: {str(e)}")
-                return False
-
-    def capture_frame(self):
-        """Capture a single frame"""
+    def get_latest_frame(self):
+        """Get the most recent frame for the web feed"""
         try:
-            buffer = io.BytesIO()
-            self.picam2.capture_file(buffer, format='jpeg')
-            frame_data = buffer.getvalue()
-            buffer.close()
-
-            # Process frame for motion detection
-            if self.motion_detector:
-                self.motion_detector.process_frame(frame_data)
-
-            return frame_data
-        except Exception as e:
-            print(f"Error capturing frame: {str(e)}")
+            return self.frame_queue.get_nowait()
+        except:
             return None
 
+    def stop_stream(self):
+        """Clean shutdown of camera and threads"""
+        self.should_run = False
+        self.stream_active = False
+        if self.motion_detection_thread:
+            self.motion_detection_thread.join(timeout=1.0)
+        if self.picam2:
+            self.picam2.stop()
+            self.picam2.close()
