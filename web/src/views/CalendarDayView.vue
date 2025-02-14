@@ -186,24 +186,25 @@ export default defineComponent({
   flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden; /* Prevent content from spilling out */
+  overflow-y: auto;
 }
 
 .video-container {
   width: 100%;
+  min-height: 250px;
   background-color: #000;
-  /* Let the video container take its natural height based on content */
 }
 
 .video-list-wrapper {
-  flex: 1; /* Take up remaining space */
+  flex: 1;
+  min-height: 150px;
   display: flex;
   flex-direction: column;
   background-color: #1a1a1a;
   border: 1px solid #333;
   margin: 0.5rem;
   border-radius: 4px;
-  overflow: hidden; /* Prevent content from spilling out */
+  overflow-y: auto;
 }
 
 .video-list {

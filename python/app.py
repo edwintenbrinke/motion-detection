@@ -4,6 +4,7 @@ from streaming import start_stream, stop_stream, generate_frames
 from motion_detection import stop_recording_and_post
 from settings_manager import fetch_settings, periodic_settings_update
 import sys
+import threading
 
 app = Flask(__name__)
 

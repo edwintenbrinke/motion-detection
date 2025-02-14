@@ -128,6 +128,13 @@ def detect_motion(current_frame, prev_frame):
 
     current_time = time.time()
 
+    # First, check if we've exceeded MAX_RECORDING_DURATION
+    if motion_state['recording'] and (current_time - motion_state['recording_start_time'] >= MAX_RECORDING_DURATION):
+        print(f"Max duration ({MAX_RECORDING_DURATION}s) reached, stopping recording")
+        stop_recording_and_post()
+        # Don't immediately start a new recording - wait for new motion
+        return
+
     # Check if frame sizes match
     if current_frame.shape != prev_frame.shape:
         print("Frame size mismatch, skipping motion detection.")
@@ -146,14 +153,11 @@ def detect_motion(current_frame, prev_frame):
             # Start new recording
             start_recording()
         else:
-            # Extend current recording (if it hasn't reached max duration yet)
-            motion_state['scheduled_stop_time'] = current_time + RECORDING_EXTENSION
-
-        # Check if max duration reached (60 seconds)
-        if current_time - motion_state['recording_start_time'] >= MAX_RECORDING_DURATION:
-            # Stop recording, post the video, and start a new recording
-            stop_recording_and_post()
-            start_recording()
+            # Extend current recording
+            motion_state['scheduled_stop_time'] = min(
+                motion_state['recording_start_time'] + MAX_RECORDING_DURATION,
+                current_time + RECORDING_EXTENSION
+            )
     elif motion_state['recording']:
         # Check if we've reached the scheduled stop time
         if current_time >= motion_state['scheduled_stop_time']:
@@ -163,6 +167,10 @@ def start_recording():
     global motion_state
 
     try:
+        # If there's already a recording, stop it first
+        if motion_state['recording']:
+            stop_recording_and_post()
+
         current_time = time.time()
         # Convert current_time to a human-readable ISO 8601 format
         motion_state['timestamp'] = datetime.utcfromtimestamp(current_time).strftime('%Y_%m_%dT%H_%M_%S')
@@ -177,7 +185,10 @@ def start_recording():
         )
         motion_state['recording'] = True
         motion_state['recording_start_time'] = current_time
-        motion_state['scheduled_stop_time'] = current_time + RECORDING_EXTENSION
+        motion_state['scheduled_stop_time'] = min(
+            current_time + MAX_RECORDING_DURATION,
+            current_time + RECORDING_EXTENSION
+        )
         print(f"Started recording: {motion_state['output_file']} at {motion_state['timestamp']}")
     except Exception as e:
         print(f"Error starting recording: {str(e)}")

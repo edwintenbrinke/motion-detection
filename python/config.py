@@ -9,5 +9,5 @@ MOTION_THRESHOLD = 1000
 RECORDING_EXTENSION = 5
 MAX_RECORDING_DURATION = 60
 
-API_VIDEO_ENDPOINT = "https://192.168.1.130/api/video/upload"
-API_SETTINGS_ENDPOINT = "https://192.168.1.130/api/user/settings"
+API_VIDEO_ENDPOINT = "http://192.168.1.130/api/video/upload"
+API_SETTINGS_ENDPOINT = "http://192.168.1.130/api/user/settings"
