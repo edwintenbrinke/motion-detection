@@ -3,7 +3,19 @@ from camera_manager import CameraManager
 from motion_detector import MotionDetector
 from video_handler import VideoHandler
 from web_server import WebServer
+from settings_manager import SettingsManager
+from api_client import APIClient
 from config import Config
+
+import builtins
+import datetime
+
+original_print = builtins.print
+
+def new_print(*args, **kwargs):
+    original_print(f"[{datetime.datetime.now()}]", *args, **kwargs)
+
+builtins.print = new_print
 
 #pip install flask picamera2 opencv-python requests numpy
 
@@ -15,11 +27,17 @@ def main():
             print("Failed to initialize camera. Exiting.")
             sys.exit(1)
 
-        # Initialize video handler first
+        # Initialize API client
+        api_client = APIClient()
+
+        # Initialize settings manager
+        settings_manager = SettingsManager(api_client)
+
+        # Initialize video handler
         video_handler = VideoHandler(camera_manager.picam2)
 
-        # Initialize motion detector with video handler
-        motion_detector = MotionDetector(video_handler)
+        # Initialize motion detector with video handler and settings manager
+        motion_detector = MotionDetector(video_handler, settings_manager)
 
         # Connect motion detector to camera manager
         camera_manager.set_motion_detector(motion_detector)

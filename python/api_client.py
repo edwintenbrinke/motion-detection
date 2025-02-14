@@ -85,3 +85,18 @@ class APIClient:
         except Exception as e:
             print(f"Error uploading video: {str(e)}")
             return False
+
+    def get_settings(self):
+        """Fetch settings from the API"""
+        try:
+            response = self._make_request(
+                requests.get,
+                Config.SETTINGS_ENDPOINT
+            )
+
+            if response.status_code == 200:
+                return response.json()
+            return None
+        except Exception as e:
+            print(f"Error fetching settings: {str(e)}")
+            return None

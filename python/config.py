@@ -2,12 +2,15 @@ class Config:
     BASE_URL = "https://api.edwintenbrinke.nl"
     LOGIN_ENDPOINT = "/api/login"
     UPLOAD_ENDPOINT = "/api/video/upload"
+    SETTINGS_ENDPOINT = "/api/user/settings"
     AUTH_CREDENTIALS = {
         "username": "admin",
         "password": "admin"
     }
     MAX_RETRY_ATTEMPTS = 3
     RETRY_DELAY = 1  # seconds
+    SETTINGS_UPDATE_INTERVAL = 60  # seconds
+
 
     # Camera Configuration
     CAMERA_CONFIGS = {
@@ -17,11 +20,6 @@ class Config:
         '480p': {'size': (854, 480), 'fps': 120}
     }
     DEFAULT_CONFIG = '1080p'
-
-    # Motion Detection Configuration
-    MOTION_THRESHOLD = 1000
-    RECORDING_EXTENSION = 5
-    MAX_RECORDING_DURATION = 60
 
     # Server Configuration
     SERVER_HOST = '0.0.0.0'

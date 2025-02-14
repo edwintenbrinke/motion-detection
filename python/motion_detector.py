@@ -5,8 +5,9 @@ from datetime import datetime
 from config import Config
 
 class MotionDetector:
-    def __init__(self, video_handler):
+    def __init__(self, video_handler, settings_manager):
         self.video_handler = video_handler
+        self.settings_manager = settings_manager
         self.state = {
             'detected': False,
             'recording': False,
@@ -47,7 +48,7 @@ class MotionDetector:
             motion_score = cv2.countNonZero(thresh)
 
             # Motion detected
-            if motion_score > Config.MOTION_THRESHOLD:
+            if motion_score > self.settings_manager.motion_threshold:
                 print(f"Motion detected! Score: {motion_score}")
                 self.state['detected'] = True
                 self.state['last_motion_time'] = current_time
@@ -58,11 +59,11 @@ class MotionDetector:
                     self.video_handler.start_recording()
                     self.state['recording'] = True
                     self.state['recording_start_time'] = current_time
-                    self.state['scheduled_stop_time'] = current_time + Config.RECORDING_EXTENSION
+                    self.state['scheduled_stop_time'] = current_time + self.settings_manager.recording_extension
                 else:
                     # Already recording, extend the stop time
-                    new_stop_time = current_time + Config.RECORDING_EXTENSION
-                    max_stop_time = self.state['recording_start_time'] + Config.MAX_RECORDING_DURATION
+                    new_stop_time = current_time + self.settings_manager.recording_extension
+                    max_stop_time = self.state['recording_start_time'] + self.settings_manager.max_recording_duration
 
                     # Don't extend beyond max duration
                     self.state['scheduled_stop_time'] = min(new_stop_time, max_stop_time)
@@ -70,14 +71,14 @@ class MotionDetector:
             # Check if we should stop recording
             if self.state['recording']:
                 # Stop if we've reached max duration
-                if current_time - self.state['recording_start_time'] >= Config.MAX_RECORDING_DURATION:
-                    print(f"Stopping recording - reached max duration of {Config.MAX_RECORDING_DURATION}s")
+                if current_time - self.state['recording_start_time'] >= self.settings_manager.max_recording_duration:
+                    print(f"Stopping recording - reached max duration of {self.settings_manager.max_recording_duration}s")
                     self.video_handler.stop_recording()
                     self.state['recording'] = False
                     self.state['detected'] = False
                 # Stop if no motion for RECORDING_EXTENSION seconds
                 elif current_time >= self.state['scheduled_stop_time']:
-                    print(f"Stopping recording - no motion for {Config.RECORDING_EXTENSION}s")
+                    print(f"Stopping recording - no motion for {self.settings_manager.recording_extension}s")
                     self.video_handler.stop_recording()
                     self.state['recording'] = False
                     self.state['detected'] = False
