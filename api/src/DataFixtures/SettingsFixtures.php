@@ -17,6 +17,7 @@ class SettingsFixtures extends Fixture implements DependentFixtureInterface
         $settings = new Settings();
         $settings->setUser($user);
         $settings->setMotionThreshold(5000);
+        $settings->setRoiMotionThreshold(500);
         $settings->setMaxDiskUsageInGb(100);
         $settings->setMaxRecordingDuration(60);
         $settings->setRecordingExtension(5);
