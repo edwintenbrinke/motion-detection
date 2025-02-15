@@ -92,6 +92,13 @@ class CameraManager:
         except:
             return None
 
+    def get_latest_frame_without_removing(self):
+        """Get the most recent frame for the web feed without removing it."""
+        try:
+            return self.frame_queue.queue[-1]  # Peek at the last frame without removing
+        except IndexError:
+            return None  # Queue is empty
+
     def stop_stream(self):
         """Clean shutdown of camera and threads"""
         self.should_run = False

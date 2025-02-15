@@ -4,10 +4,7 @@ namespace App\Service;
 
 use App\DTO\PaginatedResponseDTO;
 use Doctrine\ORM\QueryBuilder;
-use ReflectionClass;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
-use Symfony\Component\Serializer\Normalizer\ObjectNormalizer;
 use Symfony\Component\Serializer\SerializerInterface;
 
 class PaginationService
@@ -22,10 +19,10 @@ class PaginationService
     /**
      * Handles pagination for a given query builder and returns a PaginatedResponseDTO.
      *
-     * @param QueryBuilder $query_builder
-     * @param int $page
-     * @param int $items_per_page
-     * @param $search
+     * @param  QueryBuilder         $query_builder
+     * @param  int                  $page
+     * @param  int                  $items_per_page
+     * @param                       $search
      * @return PaginatedResponseDTO
      */
     public static function paginateQueryBuilder(QueryBuilder $query_builder, int $page, ?int $items_per_page = null): PaginatedResponseDTO
@@ -61,22 +58,23 @@ class PaginationService
         $reflectionClass = new \ReflectionClass($dtoClass);
 
         $constructor = $reflectionClass->getConstructor();
-        if (!$constructor) {
+        if (!$constructor)
+        {
             throw new \InvalidArgumentException("The class $dtoClass must have a constructor.");
         }
 
         $parameters = $constructor->getParameters();
         $constructorArgs = [];
 
-        foreach ($parameters as $parameter) {
+        foreach ($parameters as $parameter)
+        {
             $name = $parameter->getName();
             $camelCaseName = $this->snakeToCamelCase($name);
             $getter = 'get' . ucfirst($camelCaseName);
 
-            if (!method_exists($entity, $getter)) {
-                throw new \InvalidArgumentException(
-                    "The entity class " . get_class($entity) . " must have a method $getter to map to $dtoClass::$name."
-                );
+            if (!method_exists($entity, $getter))
+            {
+                throw new \InvalidArgumentException('The entity class ' . get_class($entity) . " must have a method $getter to map to $dtoClass::$name.");
             }
 
             $constructorArgs[] = $entity->$getter();
@@ -95,14 +93,15 @@ class PaginationService
         $data = $paginated_response_dto->getData();
         $transformedData = [];
 
-        foreach ($data as $entity) {
+        foreach ($data as $entity)
+        {
             $transformedData[] = $this->transformEntityToDTO($entity, $output_data_dto_class);
         }
 
         $response = [
-            'data' => $transformedData,
-            'total' => $paginated_response_dto->getTotal(),
-            'currentPage' => $paginated_response_dto->getCurrentPage(),
+            'data'         => $transformedData,
+            'total'        => $paginated_response_dto->getTotal(),
+            'currentPage'  => $paginated_response_dto->getCurrentPage(),
             'itemsPerPage' => $paginated_response_dto->getItemsPerPage(),
         ];
 

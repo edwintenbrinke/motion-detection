@@ -8,7 +8,6 @@ use App\Enum\MotionDetectedFileTypeEnum;
 use App\Service\PaginationService;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
-use Symfony\Component\HttpFoundation\Request;
 
 /**
  * @extends ServiceEntityRepository<MotionDetectedFile>
@@ -44,7 +43,7 @@ class MotionDetectedFileRepository extends ServiceEntityRepository
 
     public function getTotalFileSize(MotionDetectedFileTypeEnum $type): int
     {
-        return (int) $this->createQueryBuilder('f')
+        return (int)$this->createQueryBuilder('f')
             ->select('SUM(f.file_size)')
             ->where('f.type = :type')
             ->setParameter('type', $type)

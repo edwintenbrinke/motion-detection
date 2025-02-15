@@ -2,14 +2,11 @@
 
 namespace App\DataFixtures;
 
-use App\Entity\MotionDetectedFile;
 use App\Entity\Settings;
 use App\Entity\User;
-use App\Enum\MotionDetectedFileTypeEnum;
 use Doctrine\Bundle\FixturesBundle\Fixture;
 use Doctrine\Common\DataFixtures\DependentFixtureInterface;
 use Doctrine\Persistence\ObjectManager;
-use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 class SettingsFixtures extends Fixture implements DependentFixtureInterface
 {

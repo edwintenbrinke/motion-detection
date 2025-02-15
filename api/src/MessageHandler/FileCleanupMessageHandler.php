@@ -2,7 +2,6 @@
 
 namespace App\MessageHandler;
 
-use App\Entity\MotionDetectedFile;
 use App\Message\FileCleanupMessage;
 use App\Repository\MotionDetectedFileRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -29,21 +28,25 @@ class FileCleanupMessageHandler
         {
             return false;
         }
-//dd($total_file_size, $size_threshold);
+
         $batch_size = 100;
         $offset = 0;
-        while ($total_file_size > $size_threshold) {
+        while ($total_file_size > $size_threshold)
+        {
             // Get the files ordered by oldest first, limiting to 100 files per batch
             $files = $this->file_repository->findFilesOrderedByDateWithLimit($message->getType(), $batch_size, $offset);
 
             // If no files are left, break the loop
-            if (empty($files)) {
+            if (empty($files))
+            {
                 break;
             }
 
-            foreach ($files as $file) {
+            foreach ($files as $file)
+            {
                 // Remove the file from disk
-                if (file_exists($file->getFullFilePath())) {
+                if (file_exists($file->getFullFilePath()))
+                {
                     unlink($file->getFullFilePath());
                 }
 
@@ -54,7 +57,8 @@ class FileCleanupMessageHandler
                 $total_file_size -= $file->getFileSize();
 
                 // Break if the threshold is reached
-                if ($total_file_size <= $size_threshold) {
+                if ($total_file_size <= $size_threshold)
+                {
                     break;
                 }
             }
@@ -65,6 +69,5 @@ class FileCleanupMessageHandler
             // Flush the changes in batches to avoid memory overload
             $this->entity_manager->flush();
         }
-        dd($size_threshold, $total_file_size);
     }
 }

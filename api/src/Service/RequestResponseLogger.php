@@ -21,11 +21,11 @@ class RequestResponseLogger
 
         // Log request details
         $this->logger->info('Incoming Request', [
-            'method' => $request->getMethod(),
-            'uri' => $request->getUri(),
+            'method'  => $request->getMethod(),
+            'uri'     => $request->getUri(),
             'headers' => $request->headers->all(),
             'cookies' => $request->cookies->all(),
-            'query' => $request->query->all(),
+            'query'   => $request->query->all(),
             'request' => $request->request->all()
         ]);
     }

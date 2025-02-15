@@ -18,6 +18,7 @@ class ProcessFileMessageHandler
     private LoggerInterface $conversion_logger;
     private string $public_recordings_folder;
     private string $ffmpeg_path;
+
     public function __construct(EntityManagerInterface $entity_manager, LoggerInterface $conversion_logger, string $public_recordings_folder, string $ffmpeg_path = '/usr/bin/ffmpeg')
     {
         $this->public_recordings_folder = $public_recordings_folder;
@@ -57,7 +58,7 @@ class ProcessFileMessageHandler
     {
         // Log starting of conversion
         $this->conversion_logger->info("Starting conversion for file: $input_file_path", [
-            'input' => $input_file_path,
+            'input'  => $input_file_path,
             'output' => $output_file_path,
         ]);
 
@@ -71,27 +72,30 @@ class ProcessFileMessageHandler
             $output_file_path       // Output file
         ]);
 
-        try {
+        try
+        {
             // Log the command being run (for debugging purposes)
-            $this->conversion_logger->debug("Running FFmpeg command: " . $process->getCommandLine());
+            $this->conversion_logger->debug('Running FFmpeg command: ' . $process->getCommandLine());
 
             $process->mustRun();  // Executes the command and throws an exception if the command fails
 
             // Log successful conversion
             $this->conversion_logger->info("Conversion successful: $output_file_path", [
-                'input' => $input_file_path,
+                'input'  => $input_file_path,
                 'output' => $output_file_path,
             ]);
 
             unlink($input_file_path);
 
             return true;
-        } catch (ProcessFailedException $exception) {
+        }
+        catch (ProcessFailedException $exception)
+        {
             // Log the failure with the exception details
             $this->conversion_logger->error("Conversion failed: $input_file_path", [
                 'exception' => $exception->getMessage(),
-                'input' => $input_file_path,
-                'output' => $output_file_path,
+                'input'     => $input_file_path,
+                'output'    => $output_file_path,
             ]);
 
             return false;

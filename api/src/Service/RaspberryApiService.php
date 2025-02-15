@@ -2,8 +2,6 @@
 
 namespace App\Service;
 
-use Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface;
-use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 class RaspberryApiService
@@ -21,7 +19,8 @@ class RaspberryApiService
     {
         $response = $this->http_client->request('GET', '/single_frame');
 
-        if ($response->getStatusCode() !== 200) {
+        if ($response->getStatusCode() !== 200)
+        {
             return null;
         }
 

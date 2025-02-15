@@ -1,21 +1,22 @@
 <?php
 
 // src/Security/JwtCookieAuthenticationSuccessHandler.php
+
 namespace App\Security;
 
-use Lexik\Bundle\JWTAuthenticationBundle\Event\AuthenticationSuccessEvent;
 use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
 use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Http\Authentication\AuthenticationSuccessHandlerInterface;
-use Symfony\Component\HttpFoundation\Request;
 
 class JwtCookieAuthenticationSuccessHandler implements AuthenticationSuccessHandlerInterface
 {
-    const AUTH_COOKIE = 'auth_token';
-    const USERNAME_COOKIE = 'username';
+    public const AUTH_COOKIE = 'auth_token';
+    public const USERNAME_COOKIE = 'username';
+
     public function __construct(
         private readonly JWTTokenManagerInterface $jwt_manager,
     ) {
@@ -54,7 +55,7 @@ class JwtCookieAuthenticationSuccessHandler implements AuthenticationSuccessHand
 
         $response = new JsonResponse([
             'message' => 'Authentication successful',
-            'token' => 'Bearer ' . $jwt,
+            'token'   => 'Bearer ' . $jwt,
         ]);
 
         $response->headers->setCookie($jwtCookie);

@@ -23,17 +23,17 @@ trait ValidationTrait
     protected function serializeEntityArrayToDTOs(array $data, string $format = 'json'): array
     {
         $result = [];
-        foreach ($data as $datum) {
+        foreach ($data as $datum)
+        {
             $serialized = $this->serializer->normalize($datum);
             $return = [
-                'id' => $serialized['id'],
-                'file_name' => $serialized['file_name'],
-                'type' => $serialized['type'],
+                'id'         => $serialized['id'],
+                'file_name'  => $serialized['file_name'],
+                'type'       => $serialized['type'],
                 'created_at' => $serialized['created_at'],
             ];
             $result[] = $return;
-//            $result[] = $this->serializer->denormalize($serialized, $format);
-//            $result[] = $this->serializeEntityToDTO($datum, $format);
+            // $result[] = $this->serializeEntityToDTO($datum, $format);
         }
         return $result;
     }
@@ -54,42 +54,48 @@ trait ValidationTrait
                 $class,
                 'json'
             );
-        } catch (NotNormalizableValueException $exception) {
+        }
+        catch (NotNormalizableValueException $exception)
+        {
             // Handle specific deserialization errors (e.g., type mismatch)
             return new JsonResponse([
-                'status' => 'error',
+                'status'  => 'error',
                 'message' => 'Invalid value for a field.',
                 'details' => [
-                    'property' => $exception->getPath(),
+                    'property'      => $exception->getPath(),
                     'expected_type' => $exception->getExpectedTypes(),
                     'provided_type' => $exception->getCurrentType()
                 ],
             ], Response::HTTP_BAD_REQUEST);
-        } catch (\Exception $exception) {
+        }
+        catch (\Exception $exception)
+        {
             // Handle general JSON syntax errors
             return new JsonResponse([
-                'status' => 'error',
+                'status'  => 'error',
                 'message' => 'Syntax error. JSON couldn\'t be decoded.',
             ], Response::HTTP_BAD_REQUEST);
         }
 
         // Validate the object
         $errors = $this->validator->validate($entity);
-        if (count($errors) !== 0) {
+        if (count($errors) !== 0)
+        {
             // Collect error messages for validation errors
             $error_messages = [];
-            foreach ($errors as $error) {
+            foreach ($errors as $error)
+            {
                 $error_messages[] = [
                     'property' => $error->getPropertyPath(),
-                    'message' => $error->getMessage(),
+                    'message'  => $error->getMessage(),
                 ];
             }
 
             // Return validation errors
             return new JsonResponse([
-                'status' => 'error',
+                'status'  => 'error',
                 'message' => 'Validation failed',
-                'errors' => $error_messages,
+                'errors'  => $error_messages,
             ], Response::HTTP_BAD_REQUEST);
         }
 
@@ -97,20 +103,20 @@ trait ValidationTrait
         return $entity;
     }
 
-
     /**
      * Validates an object and returns validation errors if any.
      *
-     * @param mixed $object The object to validate
-     * @param ValidatorInterface $validator The validator service
-     * @return JsonResponse|null Returns JsonResponse with errors if validation fails, null otherwise
+     * @param  mixed              $object    The object to validate
+     * @param  ValidatorInterface $validator The validator service
+     * @return JsonResponse|null  Returns JsonResponse with errors if validation fails, null otherwise
      */
     protected function validateObject(mixed $object, ValidatorInterface $validator): ?JsonResponse
     {
         // If the object is not an entity or doesn't support validation, return null
-        if (!is_object($object)) {
+        if (!is_object($object))
+        {
             return new JsonResponse([
-                'status' => 'error',
+                'status'  => 'error',
                 'message' => 'Invalid input: not an object'
             ], Response::HTTP_BAD_REQUEST);
         }
@@ -119,21 +125,23 @@ trait ValidationTrait
         $errors = $validator->validate($object);
 
         // Check if there are any validation errors
-        if (count($errors) > 0) {
+        if (count($errors) > 0)
+        {
             // Collect error messages
             $error_messages = [];
-            foreach ($errors as $error) {
+            foreach ($errors as $error)
+            {
                 $error_messages[] = [
                     'property' => $error->getPropertyPath(),
-                    'message' => $error->getMessage()
+                    'message'  => $error->getMessage()
                 ];
             }
 
             // Return validation errors
             return new JsonResponse([
-                'status' => 'error',
+                'status'  => 'error',
                 'message' => 'Validation failed',
-                'errors' => $error_messages
+                'errors'  => $error_messages
             ], Response::HTTP_BAD_REQUEST);
         }
 
@@ -144,17 +152,16 @@ trait ValidationTrait
     /**
      * Handles generic error responses
      *
-     * @param string $message Error message
-     * @param int $statusCode HTTP status code
+     * @param  string       $message    Error message
+     * @param  int          $statusCode HTTP status code
      * @return JsonResponse
      */
     protected function createErrorResponse(
         string $message,
-        int    $statusCode = Response::HTTP_INTERNAL_SERVER_ERROR
-    ): JsonResponse
-    {
+        int $statusCode = Response::HTTP_INTERNAL_SERVER_ERROR
+    ): JsonResponse {
         return new JsonResponse([
-            'status' => 'error',
+            'status'  => 'error',
             'message' => $message
         ], $statusCode);
     }
@@ -162,19 +169,18 @@ trait ValidationTrait
     /**
      * Creates a success response
      *
-     * @param string $message Success message
-     * @param array $data Additional data to include
-     * @param int $statusCode HTTP status code
+     * @param  string       $message    Success message
+     * @param  array        $data       Additional data to include
+     * @param  int          $statusCode HTTP status code
      * @return JsonResponse
      */
     protected function createSuccessResponse(
         string $message,
-        array  $data = [],
-        int    $statusCode = Response::HTTP_OK
-    ): JsonResponse
-    {
+        array $data = [],
+        int $statusCode = Response::HTTP_OK
+    ): JsonResponse {
         return new JsonResponse([
-            'status' => 'success',
+            'status'  => 'success',
             'message' => $message,
             ...$data
         ], $statusCode);

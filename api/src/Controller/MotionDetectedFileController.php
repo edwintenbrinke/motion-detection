@@ -23,6 +23,7 @@ use Symfony\Component\Routing\Attribute\Route;
 class MotionDetectedFileController extends AbstractController
 {
     use ValidationTrait;
+
     #[Route('/', name: 'api_motion_detected_file_post', methods: ['POST'])]
     public function createAction(Request $request, EntityManagerInterface $entity_manager): Response
     {
@@ -45,8 +46,8 @@ class MotionDetectedFileController extends AbstractController
     #[Route('/table', name: 'api_motion_detected_file_get_table', methods: ['GET'])]
     public function getTableAction(Request $request, MotionDetectedFileRepository $detected_file_repo, PaginationService $service): Response
     {
-        $page = (int)($request->query->get('page', 1));
-        $items_per_page = (int)($request->query->get('itemsPerPage', 10));
+        $page = (int)$request->query->get('page', 1);
+        $items_per_page = (int)$request->query->get('itemsPerPage', 10);
         $search = $request->query->get('search', '');
 
         return $service->returnPaginatedSerializedResponse(
@@ -58,7 +59,7 @@ class MotionDetectedFileController extends AbstractController
     #[Route('/calendar', name: 'api_motion_detected_file_get_calendar', methods: ['GET'])]
     public function getCalendarAction(Request $request, MotionDetectedFileRepository $detected_file_repo): Response
     {
-        $date = (string)($request->query->get('date'));
+        $date = (string)$request->query->get('date');
         if (!isset($date))
         {
             throw new BadRequestHttpException();

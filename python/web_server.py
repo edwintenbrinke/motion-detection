@@ -22,7 +22,7 @@ class WebServer:
 
         @self.app.route('/single_frame')
         def single_frame():
-            frame_data = self.camera_manager.get_latest_frame()
+            frame_data = self.camera_manager.get_latest_frame_without_removing()
             if frame_data:
                 return Response(frame_data, mimetype='image/jpeg')
             return jsonify({'error': 'No frame available'}), 404
