@@ -66,21 +66,16 @@ class APIClient:
 
             with open(file_path, 'rb') as file:
                 files = {'file': file}
-                # Prepare the JSON payload
                 payload = {
                     'roi_triggered': roi_triggered,
                     'timestamp': timestamp
                 }
 
-                # Convert payload to JSON string and include in the request
-                headers = {'Content-Type': 'application/json'}
-
                 response = self._make_request(
                     requests.post,
                     Config.UPLOAD_ENDPOINT,
                     files=files,
-                    data=payload,  # Send JSON payload
-                    headers=headers,  # Include headers to indicate JSON content
+                    data=payload,
                     verify=False
                 )
 
