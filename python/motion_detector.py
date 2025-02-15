@@ -3,6 +3,7 @@ import numpy as np
 import time
 from datetime import datetime
 from config import Config
+import threading
 
 class MotionDetector:
     def __init__(self, video_handler, settings_manager):
