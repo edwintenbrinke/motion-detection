@@ -99,6 +99,7 @@ class MotionDetector:
 
             # Motion detected in full frame
             if motion_score > self.settings_manager.motion_threshold:
+                # print(f"Motion detected! Score: {motion_score}")
                 self.state['detected'] = True
                 self.state['last_motion_time'] = current_time
 
@@ -118,6 +119,8 @@ class MotionDetector:
                     # Already recording, extend the stop time
                     new_stop_time = current_time + self.settings_manager.recording_extension
                     max_stop_time = self.state['recording_start_time'] + self.settings_manager.max_recording_duration
+
+                    # Don't extend beyond max duration
                     self.state['scheduled_stop_time'] = min(new_stop_time, max_stop_time)
 
             # Check if we should stop recording
