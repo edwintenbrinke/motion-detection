@@ -9,6 +9,9 @@ class SettingsInputDTO
     #[Assert\NotBlank(message: 'Motion threshold cannot be blank')]
     public int $motion_threshold;
 
+    #[Assert\NotBlank(message: 'ROI Motion threshold cannot be blank')]
+    public int $roi_motion_threshold;
+
     #[Assert\NotBlank(message: 'Recording extension cannot be blank')]
     public int $recording_extension;
 
@@ -26,6 +29,16 @@ class SettingsInputDTO
     public function setMotionThreshold(int $motion_threshold): void
     {
         $this->motion_threshold = $motion_threshold;
+    }
+
+    public function getRoiMotionThreshold(): int
+    {
+        return $this->roi_motion_threshold;
+    }
+
+    public function setRoiMotionThreshold(int $roi_motion_threshold): void
+    {
+        $this->roi_motion_threshold = $roi_motion_threshold;
     }
 
     public function getRecordingExtension(): int

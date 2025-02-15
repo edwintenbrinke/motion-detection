@@ -37,6 +37,19 @@ class WebServer:
                 })
             return jsonify({'success': False})
 
+        @self.app.route('/debug_frame')
+        def debug_frame():
+            """Return a single frame with ROI visualization"""
+            frame_data = self.camera_manager.get_latest_frame_without_removing()
+            if frame_data:
+                debug_frame = self.camera_manager.motion_detector.get_debug_frame(frame_data)
+                return Response(debug_frame, mimetype='image/jpeg')
+            return jsonify({'error': 'No frame available'}), 404
+
+        @self.app.route('/debug_view')
+        def debug_view():
+            return render_template('debug_roi.html')
+
     def _generate_frames(self):
         while self.camera_manager.stream_active:
             frame_data = self.camera_manager.get_latest_frame()

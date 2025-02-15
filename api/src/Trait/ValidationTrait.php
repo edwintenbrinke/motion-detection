@@ -25,15 +25,7 @@ trait ValidationTrait
         $result = [];
         foreach ($data as $datum)
         {
-            $serialized = $this->serializer->normalize($datum);
-            $return = [
-                'id'         => $serialized['id'],
-                'file_name'  => $serialized['file_name'],
-                'type'       => $serialized['type'],
-                'created_at' => $serialized['created_at'],
-            ];
-            $result[] = $return;
-            // $result[] = $this->serializeEntityToDTO($datum, $format);
+             $result[] = $this->serializeEntityToDTO($datum, $format);
         }
         return $result;
     }

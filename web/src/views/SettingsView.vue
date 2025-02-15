@@ -16,6 +16,14 @@
       </div>
 
       <div class="form-group">
+        <label>ROI Motion pixel threshold</label>
+        <input
+          type="number"
+          v-model="settings.roi_motion_threshold"
+        >
+      </div>
+
+      <div class="form-group">
         <label>Recording extension</label>
         <input
           type="number"
@@ -62,6 +70,7 @@ export default {
     return {
       settings: {
         motion_threshold: 0,
+        roi_motion_threshold: 0,
         recording_extension: 0,
         max_recording_duration: 0,
         max_disk_usage_in_gb: 0,
