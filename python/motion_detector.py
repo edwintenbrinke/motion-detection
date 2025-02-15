@@ -129,3 +129,80 @@ class MotionDetector:
 
         except Exception as e:
             print(f"Error in detect_motion: {str(e)}")
+
+    def get_debug_frame(self, frame_data):
+        """Create a debug frame with the ROI mask overlay"""
+        try:
+            # Decode the JPEG frame
+            frame = cv2.imdecode(
+                np.frombuffer(frame_data, np.uint8),
+                cv2.IMREAD_COLOR
+            )
+
+            if self.roi_mask is None and self.settings_manager.detection_area_points:
+                self.roi_mask = self._create_roi_mask(frame.shape)
+
+            if self.roi_mask is not None:
+                # Create a colored overlay
+                overlay = frame.copy()
+                overlay[self.roi_mask > 0] = [0, 255, 0]  # Green tint for ROI
+
+                # Blend the overlay with the original frame
+                alpha = 0.3  # Transparency factor
+                debug_frame = cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0)
+
+                # Draw the polygon outline
+                height, width = frame.shape[:2]
+                points = []
+                for point in self.settings_manager.detection_area_points:
+                    x = int(point['x'] * width)
+                    y = int(point['y'] * height)
+                    points.append([x, y])
+
+                points_array = np.array(points, dtype=np.int32)
+                cv2.polylines(debug_frame, [points_array], True, (0, 0, 255), 2)  # Red outline
+
+                # Add debug text
+                if self.state['detected']:
+                    status = "Motion Detected"
+                    color = (0, 255, 0)
+                else:
+                    status = "No Motion"
+                    color = (0, 0, 255)
+
+                cv2.putText(
+                    debug_frame,
+                    f"Status: {status}",
+                    (10, 30),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    1,
+                    color,
+                    2
+                )
+
+                if self.state['roi_triggered']:
+                    roi_status = "ROI Triggered"
+                    roi_color = (0, 255, 0)
+                else:
+                    roi_status = "ROI Not Triggered"
+                    roi_color = (0, 0, 255)
+
+                cv2.putText(
+                    debug_frame,
+                    f"ROI: {roi_status}",
+                    (10, 70),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    1,
+                    roi_color,
+                    2
+                )
+
+                # Encode the debug frame as JPEG
+                _, buffer = cv2.imencode('.jpg', debug_frame)
+                return buffer.tobytes()
+
+            return frame_data  # Return original frame if no ROI mask
+
+        except Exception as e:
+            print(f"Error creating debug frame: {str(e)}")
+            return frame_data
