@@ -38,6 +38,12 @@ class SettingsManager:
                     self._recording_extension = response.get('recording_extension', self._recording_extension)
                     self._max_recording_duration = response.get('max_recording_duration', self._max_recording_duration)
                     self._detection_area_points = response.get('detection_area_points', self._detection_area_points)
+
+                print("Settings updated successfully")
+                print(f"Motion Threshold: {self._motion_threshold}")
+                print(f"Recording Extension: {self._recording_extension}")
+                print(f"Max Recording Duration: {self._max_recording_duration}")
+                print(f"Detection Area Points: {len(self._detection_area_points)} points configured")
         except Exception as e:
             print(f"Error updating settings: {str(e)}")
 
