@@ -37,7 +37,7 @@ class WebServer:
                 })
             return jsonify({'success': False})
 
-        @app.route('/debug_frame')
+        @self.app.route('/debug_frame')
         def debug_frame():
             """Return a single frame with ROI visualization"""
             frame_data = self.camera_manager.get_latest_frame_without_removing()
@@ -46,7 +46,7 @@ class WebServer:
                 return Response(debug_frame, mimetype='image/jpeg')
             return jsonify({'error': 'No frame available'}), 404
 
-        @app.route('/debug_view')
+        @self.app.route('/debug_view')
         def debug_view():
             """Return an HTML page with auto-refreshing debug view"""
             return """
