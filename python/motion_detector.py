@@ -8,68 +8,58 @@ class MotionDetector:
     def __init__(self, video_handler, settings_manager):
         self.video_handler = video_handler
         self.settings_manager = settings_manager
-        self.settings_manager.add_observer(self.reset_roi_mask)
         self.state = {
             'detected': False,
             'recording': False,
             'recording_start_time': 0,
             'scheduled_stop_time': 0,
             'last_motion_time': 0,
-            'roi_triggered': False
+            'roi_triggered': False  # New state to track ROI triggers
         }
         self.prev_frame = None
         self.frame_dimensions = None
         self.roi_mask = None
-        self._roi_lock = threading.Lock()
-
-    def reset_roi_mask(self):
-        """Reset the ROI mask to force recreation on next frame"""
-        with self._roi_lock:
-            self.roi_mask = None
-            print("ROI mask reset - will be recreated on next frame")
 
     def _create_roi_mask(self, frame_shape):
         """Create a binary mask for the region of interest"""
-        with self._roi_lock:
-            if not self.settings_manager.detection_area_points:
-                return None
+        if not self.settings_manager.detection_area_points:
+            return None
 
-            height, width = frame_shape[:2]
-            points = []
+        height, width = frame_shape[:2]
+        points = []
 
-            # Convert normalized coordinates to pixel coordinates
-            for point in self.settings_manager.detection_area_points:
-                x = int(point['x'] * width)
-                y = int(point['y'] * height)
-                points.append([x, y])
+        # Convert normalized coordinates to pixel coordinates
+        for point in self.settings_manager.detection_area_points:
+            x = int(point['x'] * width)
+            y = int(point['y'] * height)
+            points.append([x, y])
 
-            # Create binary mask
-            mask = np.zeros((height, width), dtype=np.uint8)
-            points_array = np.array(points, dtype=np.int32)
-            cv2.fillPoly(mask, [points_array], 255)
+        # Create binary mask
+        mask = np.zeros((height, width), dtype=np.uint8)
+        points_array = np.array(points, dtype=np.int32)
+        cv2.fillPoly(mask, [points_array], 255)
 
-            return mask
+        return mask
 
     def process_frame(self, frame_data):
-            """Process a frame for motion detection"""
-            try:
-                current_frame = cv2.imdecode(
-                    np.frombuffer(frame_data, np.uint8),
-                    cv2.IMREAD_GRAYSCALE
-                )
+        """Process a frame for motion detection"""
+        try:
+            current_frame = cv2.imdecode(
+                np.frombuffer(frame_data, np.uint8),
+                cv2.IMREAD_GRAYSCALE
+            )
 
-                # Initialize or update ROI mask if needed
-                with self._roi_lock:
-                    if self.roi_mask is None and self.settings_manager.detection_area_points:
-                        self.roi_mask = self._create_roi_mask(current_frame.shape)
+            # Initialize ROI mask if needed
+            if self.roi_mask is None and self.settings_manager.detection_area_points:
+                self.roi_mask = self._create_roi_mask(current_frame.shape)
 
-                if self.prev_frame is not None:
-                    self.detect_motion(current_frame)
+            if self.prev_frame is not None:
+                self.detect_motion(current_frame)
 
-                self.prev_frame = current_frame
+            self.prev_frame = current_frame
 
-            except Exception as e:
-                print(f"Error processing frame: {str(e)}")
+        except Exception as e:
+            print(f"Error processing frame: {str(e)}")
 
     def detect_motion(self, current_frame):
         """Detect motion between frames with ROI support"""

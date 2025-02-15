@@ -23,9 +23,6 @@ class Settings
     private int $motion_threshold;
 
     #[ORM\Column]
-    private int $roi_motion_threshold;
-
-    #[ORM\Column]
     private int $recording_extension;
 
     #[ORM\Column]
@@ -55,7 +52,6 @@ class Settings
     public function updateFromDTO(SettingsInputDTO $input_dto): self
     {
         $this->setMotionThreshold($input_dto->getMotionThreshold());
-        $this->setRoiMotionThreshold($input_dto->getRoiMotionThreshold());
         $this->setRecordingExtension($input_dto->getRecordingExtension());
         $this->setMaxRecordingDuration($input_dto->getMaxRecordingDuration());
         $this->setMaxDiskUsageInGb($input_dto->getMaxDiskUsageInGb());
@@ -91,16 +87,6 @@ class Settings
     public function setMotionThreshold(int $motion_threshold): void
     {
         $this->motion_threshold = $motion_threshold;
-    }
-
-    public function getRoiMotionThreshold(): int
-    {
-        return $this->roi_motion_threshold;
-    }
-
-    public function setRoiMotionThreshold(int $roi_motion_threshold): void
-    {
-        $this->roi_motion_threshold = $roi_motion_threshold;
     }
 
     public function getRecordingExtension(): int
