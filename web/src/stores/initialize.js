@@ -36,7 +36,7 @@ export const useInitializeStore = defineStore('initialize', {
             return this.settings.detection_area_points
         },
         getImageUrl() {
-            return this.settings.placeholder_image_url;
+            return import.meta.env.VITE_API_BASE_URL + this.settings.placeholder_image_url;
         },
         updateDetectionAreaPoints(points) {
             this.settings.detection_area_points = points;

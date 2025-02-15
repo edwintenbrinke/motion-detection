@@ -98,7 +98,7 @@ class UserController extends AbstractController
     }
 
     #[Route('/settings/{id}/placeholder-image', name: 'api_user_settings_placeholder_image_set', methods: ['POST'])]
-    public function postUserSettingsPlaceholderImage(Settings $settings, EntityManagerInterface $entity_manager, RaspberryApiService $raspberry_api_service, string $public_images_folder): Response
+    public function postUserSettingsPlaceholderImage(Settings $settings, EntityManagerInterface $entity_manager, RaspberryApiService $raspberry_api_service, string $public_folder): Response
     {
         /** @var User $user */
         $user = $this->getUser();
@@ -113,8 +113,8 @@ class UserController extends AbstractController
             throw $this->createNotFoundException();
         }
 
-        $image_path = sprintf('%s/placeholder_%s.jpeg', $public_images_folder, $settings->getId());
-        if (!file_put_contents($image_path, $image_binary))
+        $image_path = sprintf('/images/placeholder_%s.jpeg', $settings->getId());
+        if (!file_put_contents($public_folder . $image_path, $image_binary))
         {
             throw $this->createAccessDeniedException();
         }

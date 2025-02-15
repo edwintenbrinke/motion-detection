@@ -12,7 +12,7 @@ services:
         autoconfigure: true # Automatically registers your services as commands, event subscribers, etc.
         bind:
             string $public_recordings_folder: '%env(resolve:PUBLIC_RECORDINGS_FOLDER)%'
-            string $public_images_folder: '%env(resolve:PUBLIC_IMAGES_FOLDER)%'
+            string $public_folder: '%env(resolve:PUBLIC_FOLDER)%'
             string $private_recordings_folder: '%env(resolve:PRIVATE_UNPROCESSED_RECORDINGS_FOLDER)%'
             int $max_disk_usage_size_gb: '%env(int:MAX_DISK_SIZE_USAGE_GB)%'
             string $raspberry_base_url: '%env(resolve:RASPBERRY_BASE_URL)%'

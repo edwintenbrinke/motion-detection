@@ -10,6 +10,11 @@
       Reset
     </button>
 
+    <button @click="placeholderClick" class="button">
+      <i class="fa-solid fa-camera"></i>
+      Image
+    </button>
+
     <input
         type="number"
         min="3"
@@ -59,7 +64,7 @@ export default {
   created() {
     this.initStore = useInitializeStore()
     this.relativePoints = this.initStore.getDetectionAreaPoints() || []
-    // this.imageUrl = this.initStore.getImageUrl(); TODO
+    this.imageUrl = this.initStore.getImageUrl();
   },
 
   mounted() {
@@ -79,7 +84,7 @@ export default {
       this.image.onload = () => {
         this.renderCanvas()
       }
-      this.image.src = this.imageUrl
+      this.image.src = `${this.imageUrl}?_=${new Date().getTime()}`;
     },
 
     setupResizeObserver() {
@@ -220,6 +225,16 @@ export default {
     resetClick() {
       this.relativePoints = []
       this.renderCanvas();
+    },
+
+    async placeholderClick() {
+      try {
+        await this.$api.post(`/api/user/settings/1/placeholder-image`);
+        this.loadImage();
+        this.renderCanvas();
+      } catch (error) {
+        console.error('Failed to save settings:', error)
+      }
     },
 
     closeClick() {
