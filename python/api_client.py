@@ -3,6 +3,7 @@ import time
 from datetime import datetime
 import os
 from config import Config
+import json
 
 class APIClient:
     def __init__(self):
@@ -58,7 +59,7 @@ class APIClient:
 
         raise Exception("Max retry attempts reached")
 
-    def upload_video(self, file_path, timestamp=None):
+    def upload_video(self, file_path, roi_triggered=False, timestamp=None):
         """Upload video file to server"""
         try:
             if not os.path.exists(file_path):
@@ -66,10 +67,21 @@ class APIClient:
 
             with open(file_path, 'rb') as file:
                 files = {'file': file}
+                # Prepare the JSON payload
+                payload = {
+                    'roi_triggered': roi_triggered,
+                    'timestamp': timestamp
+                }
+
+                # Convert payload to JSON string and include in the request
+                headers = {'Content-Type': 'application/json'}
+
                 response = self._make_request(
                     requests.post,
                     Config.UPLOAD_ENDPOINT,
                     files=files,
+                    data=json.dumps(payload),  # Send JSON payload
+                    headers=headers,  # Include headers to indicate JSON content
                     verify=False
                 )
 
@@ -81,6 +93,12 @@ class APIClient:
             else:
                 print(f"Failed to upload {file_path}: {response.status_code}")
                 return False
+
+        except Exception as e:
+            print(f"Error uploading {file_path}: {e}")
+            return False
+
+
 
         except Exception as e:
             print(f"Error uploading video: {str(e)}")
