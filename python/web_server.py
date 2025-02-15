@@ -27,6 +27,14 @@ class WebServer:
                 return Response(frame_data, mimetype='image/jpeg')
             return jsonify({'error': 'No frame available'}), 404
 
+        @self.app.route('/debug_frame')
+        def debug_frame():
+            frame_data = self.camera_manager.get_latest_frame_without_removing()
+            if frame_data:
+                debug_frame = self.motion_detector.create_debug_frame(frame_data)
+                return Response(debug_frame, mimetype='image/jpeg')
+            return jsonify({'error': 'No frame available'}), 404
+
         @self.app.route('/configure/<config_name>')
         def configure(config_name):
             if config_name in Config.CAMERA_CONFIGS:
