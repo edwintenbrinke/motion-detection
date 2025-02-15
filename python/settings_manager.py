@@ -40,6 +40,12 @@ class SettingsManager:
         for callback in self._observers:
             callback()
 
+    def _update_loop(self):
+        """Background thread to update settings periodically"""
+        while True:
+            self.update_settings()
+            time.sleep(Config.SETTINGS_UPDATE_INTERVAL)
+
     def update_settings(self):
         """Fetch and update settings from API"""
         try:
