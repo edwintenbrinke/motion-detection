@@ -3,7 +3,6 @@ import time
 from datetime import datetime
 import os
 from config import Config
-import json
 
 class APIClient:
     def __init__(self):
@@ -80,7 +79,7 @@ class APIClient:
                     requests.post,
                     Config.UPLOAD_ENDPOINT,
                     files=files,
-                    data=json.dumps(payload),  # Send JSON payload
+                    data=payload,  # Send JSON payload
                     headers=headers,  # Include headers to indicate JSON content
                     verify=False
                 )
