@@ -13,9 +13,33 @@ class MotionDetector:
             'recording': False,
             'recording_start_time': 0,
             'scheduled_stop_time': 0,
-            'last_motion_time': 0
+            'last_motion_time': 0,
+            'roi_triggered': False  # New state to track ROI triggers
         }
         self.prev_frame = None
+        self.frame_dimensions = None
+        self.roi_mask = None
+
+    def _create_roi_mask(self, frame_shape):
+        """Create a binary mask for the region of interest"""
+        if not self.settings_manager.detection_area_points:
+            return None
+
+        height, width = frame_shape[:2]
+        points = []
+
+        # Convert normalized coordinates to pixel coordinates
+        for point in self.settings_manager.detection_area_points:
+            x = int(point['x'] * width)
+            y = int(point['y'] * height)
+            points.append([x, y])
+
+        # Create binary mask
+        mask = np.zeros((height, width), dtype=np.uint8)
+        points_array = np.array(points, dtype=np.int32)
+        cv2.fillPoly(mask, [points_array], 255)
+
+        return mask
 
     def process_frame(self, frame_data):
         """Process a frame for motion detection"""
@@ -24,6 +48,10 @@ class MotionDetector:
                 np.frombuffer(frame_data, np.uint8),
                 cv2.IMREAD_GRAYSCALE
             )
+
+            # Initialize ROI mask if needed
+            if self.roi_mask is None and self.settings_manager.detection_area_points:
+                self.roi_mask = self._create_roi_mask(current_frame.shape)
 
             if self.prev_frame is not None:
                 self.detect_motion(current_frame)
@@ -34,7 +62,7 @@ class MotionDetector:
             print(f"Error processing frame: {str(e)}")
 
     def detect_motion(self, current_frame):
-        """Detect motion between frames"""
+        """Detect motion between frames with ROI support"""
         try:
             current_time = time.time()
 
@@ -45,27 +73,41 @@ class MotionDetector:
 
             delta_frame = cv2.absdiff(self.prev_frame, current_frame)
             thresh = cv2.threshold(delta_frame, 25, 255, cv2.THRESH_BINARY)[1]
+
+            # Calculate motion score for entire frame
             motion_score = cv2.countNonZero(thresh)
 
-            # Motion detected
+            # Calculate motion score for ROI if mask exists
+            roi_triggered = False
+            if self.roi_mask is not None:
+                roi_thresh = cv2.bitwise_and(thresh, thresh, mask=self.roi_mask)
+                roi_motion_score = cv2.countNonZero(roi_thresh)
+                roi_triggered = roi_motion_score > (self.settings_manager.motion_threshold * 0.5)  # Use lower threshold for ROI
+
+                if roi_triggered:
+                    print(f"ROI motion detected! Score: {roi_motion_score}")
+
+            # Motion detected in full frame
             if motion_score > self.settings_manager.motion_threshold:
-                # print(f"Motion detected! Score: {motion_score}")
                 self.state['detected'] = True
                 self.state['last_motion_time'] = current_time
 
                 if not self.state['recording']:
                     # Start new recording
                     print("Starting new recording")
-                    self.video_handler.start_recording()
+                    self.video_handler.start_recording(roi_triggered=roi_triggered)
                     self.state['recording'] = True
                     self.state['recording_start_time'] = current_time
                     self.state['scheduled_stop_time'] = current_time + self.settings_manager.recording_extension
                 else:
+                    # Update ROI triggered state if it occurs during recording
+                    if roi_triggered and not self.state['roi_triggered']:
+                        self.state['roi_triggered'] = True
+                        self.video_handler.roi_triggered = True
+
                     # Already recording, extend the stop time
                     new_stop_time = current_time + self.settings_manager.recording_extension
                     max_stop_time = self.state['recording_start_time'] + self.settings_manager.max_recording_duration
-
-                    # Don't extend beyond max duration
                     self.state['scheduled_stop_time'] = min(new_stop_time, max_stop_time)
 
             # Check if we should stop recording
@@ -76,12 +118,14 @@ class MotionDetector:
                     self.video_handler.stop_recording()
                     self.state['recording'] = False
                     self.state['detected'] = False
+                    self.state['roi_triggered'] = False
                 # Stop if no motion for RECORDING_EXTENSION seconds
                 elif current_time >= self.state['scheduled_stop_time']:
                     print(f"Stopping recording - no motion for {self.settings_manager.recording_extension}s")
                     self.video_handler.stop_recording()
                     self.state['recording'] = False
                     self.state['detected'] = False
+                    self.state['roi_triggered'] = False
 
         except Exception as e:
             print(f"Error in detect_motion: {str(e)}")
