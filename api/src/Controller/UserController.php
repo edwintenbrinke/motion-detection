@@ -11,12 +11,14 @@ use App\DTO\User\UserOutputDTO;
 use App\Entity\Settings;
 use App\Entity\User;
 use App\Repository\SettingsRepository;
+use App\Service\RaspberryApiService;
 use App\Trait\ValidationTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 #[Route('/api/user')]
 class UserController extends AbstractController
@@ -97,7 +99,7 @@ class UserController extends AbstractController
     }
 
      #[Route('/settings/{id}/placeholder-image', name: 'api_user_settings_placeholder_image_set', methods: ['POST'])]
-    public function postUserSettingsPlaceholderImage(Request $request, EntityManagerInterface $entity_manager, Settings $settings): Response
+    public function postUserSettingsPlaceholderImage(Settings $settings, EntityManagerInterface $entity_manager, RaspberryApiService $raspberry_api_service, string $public_images_folder): Response
     {
         /** @var User $user */
         $user = $this->getUser();
@@ -106,8 +108,19 @@ class UserController extends AbstractController
             throw $this->createAccessDeniedException();
         }
 
-        // create new placeholder image
-        $settings->setPlaceholderImageUrl('/placeholders/id/placeholder.jpg');
+        $image_binary = $raspberry_api_service->fetchLatestFrame();
+        if (!$image_binary)
+        {
+            throw $this->createNotFoundException();
+        }
+
+        $image_path = sprintf('%s/placeholder_%s.jpeg', $public_images_folder, $settings->getUser()->getId());
+        if (!file_put_contents($image_path, $image_binary))
+        {
+            throw $this->createAccessDeniedException();
+        }
+
+        $settings->setPlaceholderImageUrl($image_path);
         $entity_manager->flush();
 
         return $this->json(['message' => 'Settings updated.']);

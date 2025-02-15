@@ -140,46 +140,13 @@ class VideoController extends AbstractController
          return $stream_response;
      }
 
-     #[Route('/livestream', name: 'api_livestream_video')]
-     public function reStreamLiveVideo(): Response
-     {
-         $response = new StreamedResponse(function() {
-             // Open connection to Raspberry Pi stream
-             $ch = curl_init('http://192.168.1.221:8080/video_feed');
-
-             // Configure CURL options
-             curl_setopt($ch, CURLOPT_RETURNTRANSFER, false);
-             curl_setopt($ch, CURLOPT_HEADER, false);
-             curl_setopt($ch, CURLOPT_WRITEFUNCTION, function($ch, $data) {
-                 echo $data;
-                 ob_flush();
-                 flush();
-                 return strlen($data);
-             });
-
-             // Execute request
-             curl_exec($ch);
-
-             // Close connection
-             curl_close($ch);
-         });
-
-         // Set headers to match the original stream
-         $response->headers->set('Content-Type', 'multipart/x-mixed-replace; boundary=frame');
-         $response->headers->set('Cache-Control', 'no-cache, no-store, must-revalidate');
-         $response->headers->set('Pragma', 'no-cache');
-         $response->headers->set('Expires', '0');
-
-         return $response;
-     }
-
      #[Route('/stream-alt', name: 'video_stream_alt')]
-     public function streamAlt(HttpClientInterface $client): Response
+     public function streamAlt(HttpClientInterface $client, string $raspberry_base_url): Response
      {
-         return new StreamedResponse(function() use ($client) {
+         return new StreamedResponse(function() use ($client, $raspberry_base_url) {
              $response = $client->request(
                  'GET',
-                 'http://192.168.1.221:8080/video_feed',
+                 $raspberry_base_url . '/video_feed',
                  ['buffer' => false]
              );
 

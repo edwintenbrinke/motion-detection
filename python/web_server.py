@@ -20,6 +20,13 @@ class WebServer:
                 mimetype='multipart/x-mixed-replace; boundary=frame'
             )
 
+        @self.app.route('/single_frame')
+        def single_frame():
+            frame_data = self.camera_manager.get_latest_frame()
+            if frame_data:
+                return Response(frame_data, mimetype='image/jpeg')
+            return jsonify({'error': 'No frame available'}), 404
+
         @self.app.route('/configure/<config_name>')
         def configure(config_name):
             if config_name in Config.CAMERA_CONFIGS:
