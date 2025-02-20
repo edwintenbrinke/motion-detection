@@ -70,25 +70,28 @@ const router = createRouter({
   ],
 });
 
-
-// Middleware to check authentication before each route
 router.beforeEach(async (to, from, next) => {
-  // Check if the route requires authentication
-  if (to.meta.requiresAuth) {
-    await useInitializeStore()?.getInitializingInfo();
+  await useInitializeStore()?.getInitializingInfo();
 
-    const { value: token } = await Preferences.get({ key: 'authToken' });
-    const username = CookieHelper.getCookie('username'); // Get the 'username' cookie
-    if (!username && !token) {
-      // Redirect to login page if no username cookie is found
-      next({ path: '/', replace: true }); // Ensure route changes
+  const { value: token } = await Preferences.get({ key: 'authToken' });
+
+  if (to.path === '/') {
+    if (token) {
+      // Redirect authenticated users to /calendar
+      return next({ path: '/calendar', replace: true });
     } else {
-      next(); // Proceed to the route
+      return next(); // Allow unauthenticated users to stay on /
     }
-  } else {
-    next(); // Proceed to the route if no authentication is required
   }
+
+  if (to.meta.requiresAuth && !token) {
+    // Redirect unauthenticated users trying to access protected routes
+    return next({ path: '/', replace: true });
+  }
+
+  next(); // Proceed as normal
 });
+
 
 // Execute the loadLayoutMiddleware before each route change
 router.beforeEach(loadLayoutMiddleware);

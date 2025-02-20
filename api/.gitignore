@@ -10,7 +10,7 @@
 /private/UnprocessedRecordings/
 /var/
 /vendor/
-motion*
+motion_2025*
 ###< symfony/framework-bundle ###
 
 ###> lexik/jwt-authentication-bundle ###

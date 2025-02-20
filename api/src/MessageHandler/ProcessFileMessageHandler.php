@@ -46,6 +46,7 @@ class ProcessFileMessageHandler
             return false;
         }
 
+        $this->getVideoMetadata($output_file_path, $motion_detected_file);
         $motion_detected_file->setProcessed(true);
         $motion_detected_file->setFileName($unique_file_name_mp4);
         $motion_detected_file->setFilePath($output_folder);
@@ -100,5 +101,35 @@ class ProcessFileMessageHandler
 
             return false;
         }
+    }
+
+    private function getVideoMetadata(string $file_path, MotionDetectedFile $motion_detected_file): ?MotionDetectedFile
+    {
+        $process = new Process([
+            '/usr/bin/ffprobe',  // Use ffprobe instead of ffmpeg
+            '-v', 'error',
+            '-select_streams', 'v:0',
+            '-show_entries', 'stream=width,height,duration',
+            '-of', 'json',
+            $file_path
+        ]);
+
+        try {
+            $process->mustRun();
+            $output = json_decode($process->getOutput(), true);
+            if (isset($output['streams'][0]))
+            {
+                $motion_detected_file->setVideoDuration((int) round($output['streams'][0]['duration']) ?? 0);
+                $motion_detected_file->setVideoWidth((int) $output['streams'][0]['width'] ?? 0);
+                $motion_detected_file->setVideoHeight((int) $output['streams'][0]['height'] ?? 0);
+                return $motion_detected_file;
+            }
+        } catch (ProcessFailedException $exception) {
+            $this->conversion_logger->error("Failed to retrieve video metadata", [
+                'exception' => $exception->getMessage(),
+                'file'      => $file_path,
+            ]);
+        }
+        return null;
     }
 }

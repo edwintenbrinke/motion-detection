@@ -29,6 +29,15 @@ class MotionDetectedFile
     #[Assert\PositiveOrZero(message: 'File size must be a positive number')]
     private int $file_size;
 
+    #[ORM\Column(type: 'integer', nullable: true)]
+    private int $video_duration;
+
+    #[ORM\Column(type: 'integer', nullable: true)]
+    private int $video_width;
+
+    #[ORM\Column(type: 'integer', nullable: true)]
+    private int $video_height;
+
     #[ORM\Column(enumType: MotionDetectedFileTypeEnum::class)]
     #[Assert\NotBlank(message: 'Type cannot be blank')]
     private MotionDetectedFileTypeEnum $type;
@@ -63,13 +72,13 @@ class MotionDetectedFile
         );
     }
 
-    public static function createFromFile(string $file_name, string $file_path, int $file_size): self
+    public static function createFromFile(string $file_name, string $file_path, int $file_size, bool $roi_triggered): self
     {
         return new self(
             $file_name,
             $file_path,
             $file_size,
-            MotionDetectedFileTypeEnum::normal
+            $roi_triggered ? MotionDetectedFileTypeEnum::important : MotionDetectedFileTypeEnum::normal
         );
     }
 
@@ -157,5 +166,35 @@ class MotionDetectedFile
     public function getUpdatedAt(): ?\DateTimeImmutable
     {
         return $this->updated_at;
+    }
+
+    public function getVideoDuration(): int
+    {
+        return $this->video_duration;
+    }
+
+    public function setVideoDuration(int $video_duration): void
+    {
+        $this->video_duration = $video_duration;
+    }
+
+    public function getVideoWidth(): int
+    {
+        return $this->video_width;
+    }
+
+    public function setVideoWidth(int $video_width): void
+    {
+        $this->video_width = $video_width;
+    }
+
+    public function getVideoHeight(): int
+    {
+        return $this->video_height;
+    }
+
+    public function setVideoHeight(int $video_height): void
+    {
+        $this->video_height = $video_height;
     }
 }

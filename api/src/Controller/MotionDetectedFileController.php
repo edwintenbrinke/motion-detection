@@ -72,9 +72,10 @@ class MotionDetectedFileController extends AbstractController
     }
 
     #[Route('/calendar/{date}', name: 'api_motion_detected_file_get_calendar_day', methods: ['GET'])]
-    public function getCalendarDayAction(MotionDetectedFileRepository $detected_file_repo, string $date): Response
+    public function getCalendarDayAction(Request $request, MotionDetectedFileRepository $detected_file_repo, string $date): Response
     {
-        $data = $detected_file_repo->returnPaginatedCalendar(new \DateTime($date));
+        $since = (string)$request->query->get('since') ? new \DateTime($date) : null;
+        $data = $detected_file_repo->returnPaginatedCalendar(new \DateTime($date), $since);
         return $this->json(
             $this->serializeEntityArrayToDTOs($data, MotionDetectedFileCalendarOutputDTO::class)
         );

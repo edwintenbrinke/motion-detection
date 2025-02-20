@@ -33,6 +33,8 @@ class VideoController extends AbstractController
             ], Response::HTTP_BAD_REQUEST);
         }
 
+        $roi_triggered = $request->get('roi_triggered') === 'True';
+
         /** @var UploadedFile $file */
         $file = $request->files->get('file');
         $original_file_name = $file->getClientOriginalName();
@@ -51,7 +53,7 @@ class VideoController extends AbstractController
         }
 
         $file_size = filesize($file_path);
-        $motion_detected_file = MotionDetectedFile::createFromFile($unique_file_name, $private_recordings_folder, $file_size);
+        $motion_detected_file = MotionDetectedFile::createFromFile($unique_file_name, $private_recordings_folder, $file_size, $roi_triggered);
         $entity_manager->persist($motion_detected_file);
         $entity_manager->flush();
 

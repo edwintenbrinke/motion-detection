@@ -69,7 +69,8 @@ const axiosPlugin = {
 
                     if (error.response.status === 401) {
                         try {
-                            console.warn('[Axios Error] 401 Unauthorized: Logging out');
+                            console.warn('[Axios Error] 401 Unauthorized: Removing token and logging out');
+                            await Preferences.remove({ key: 'authToken' }); // Remove the stored token
                             await apiClient.post('/api/logout');
                         } catch (logoutError) {
                             CookieHelper.deleteCookie('username');

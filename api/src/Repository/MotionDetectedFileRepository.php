@@ -7,6 +7,7 @@ use App\Entity\MotionDetectedFile;
 use App\Enum\MotionDetectedFileTypeEnum;
 use App\Service\PaginationService;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\Common\Collections\Order;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -26,20 +27,28 @@ class MotionDetectedFileRepository extends ServiceEntityRepository
         return PaginationService::paginateQueryBuilder($query_builder, $page, $limit);
     }
 
-    public function returnPaginatedCalendar(\DateTime $date): array
+    public function returnPaginatedCalendar(\DateTime $date, ?\DateTime $since = null): array
     {
         $start_time = $date->format('Y-m-d 00:00:00');
         $end_time = $date->format('Y-m-d 23:59:59');
 
-        return $this->createQueryBuilder('m')
-            ->select('m')
-            ->where('m.created_at >= :start_time AND m.created_at <= :end_time')
+        $qb = $this->createQueryBuilder('m')
+            ->where('m.created_at BETWEEN :start_time AND :end_time')
+            ->andWhere('m.processed = :processed')
+            ->setParameter('processed', true)
             ->setParameter('start_time', $start_time)
-            ->setParameter('end_time', $end_time)
-            ->orderBy('m.created_at', 'DESC')
+            ->setParameter('end_time', $end_time);
+
+        if ($since) {
+            $qb->andWhere('m.created_at > :since')
+                ->setParameter('since', $since->format('Y-m-d H:i:s'));
+        }
+dd($since);
+        return $qb->orderBy('m.created_at', Order::Descending->value)
             ->getQuery()
             ->getResult();
     }
+
 
     public function getTotalFileSize(MotionDetectedFileTypeEnum $type): int
     {
