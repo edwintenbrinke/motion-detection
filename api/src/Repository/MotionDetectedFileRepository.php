@@ -43,7 +43,7 @@ class MotionDetectedFileRepository extends ServiceEntityRepository
             $qb->andWhere('m.created_at > :since')
                 ->setParameter('since', $since->format('Y-m-d H:i:s'));
         }
-dd($since);
+
         return $qb->orderBy('m.created_at', Order::Descending->value)
             ->getQuery()
             ->getResult();
