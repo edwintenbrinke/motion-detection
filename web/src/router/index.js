@@ -8,7 +8,8 @@ import LivestreamView from "@/views/LivestreamView.vue";
 import SettingsView from "@/views/SettingsView.vue";
 import ImageRegionView from "@/views/ImageRegionView.vue";
 import { useInitializeStore } from '@/stores/initialize';
-import {Preferences} from "@capacitor/preferences"; // Import the Pinia store
+import {Preferences} from "@capacitor/preferences";
+import TestView from "@/views/TestView.vue"; // Import the Pinia store
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -19,6 +20,15 @@ const router = createRouter({
       component: LoginView,
       meta: {
         layout: 'LoginLayout',
+        requiresAuth: false,
+      },
+    },
+    {
+      path: '/test',
+      name: 'test',
+      component: TestView,
+      meta: {
+        layout: 'CalendarLayout',
         requiresAuth: false,
       },
     },

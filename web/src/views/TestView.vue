@@ -51,6 +51,8 @@
         <!-- Hour content (expandable) -->
         <transition name="expand">
           <div v-if="expandKey[node.key]" class="hour-content">
+            <ProgressSpinner v-if="loadingKeys.has(node.key)" class="p-d-flex p-jc-center p-my-3" style="width:50px;height:50px" />
+
             <div v-if="node.children && node.children.length" class="detection-cards">
               <div
                   v-for="item in node.children"
@@ -269,10 +271,11 @@ export default defineComponent({
     changeDate(offset) {
       // Change current date by offset days
       this.currentDate = this.currentDate.add(offset, 'day');
+      this.nodes = {}
+      this.expandKey = {}; // Reset expanded state
       const newDate = this.currentDate.format("YYYY-MM-DD");
       if (this.route.params.date !== newDate) {
         this.router.push(`/calendar/${newDate}`);
-        this.load();
       }
     }
   },
@@ -282,6 +285,7 @@ export default defineComponent({
       const newDateObj = dayjs(newDate);
       if (newDateObj.isValid() && !this.currentDate.isSame(newDateObj, "day")) {
         this.currentDate = newDateObj;
+        this.nodes = {}
         this.expandKey = {}; // Reset expanded state
         this.load();
       }

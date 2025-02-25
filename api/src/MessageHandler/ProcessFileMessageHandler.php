@@ -114,18 +114,21 @@ class ProcessFileMessageHandler
             $file_path
         ]);
 
-        try {
+        try
+        {
             $process->mustRun();
             $output = json_decode($process->getOutput(), true);
             if (isset($output['streams'][0]))
             {
-                $motion_detected_file->setVideoDuration((int) round($output['streams'][0]['duration']) ?? 0);
-                $motion_detected_file->setVideoWidth((int) $output['streams'][0]['width'] ?? 0);
-                $motion_detected_file->setVideoHeight((int) $output['streams'][0]['height'] ?? 0);
+                $motion_detected_file->setVideoDuration((int)round($output['streams'][0]['duration']) ?? 0);
+                $motion_detected_file->setVideoWidth((int)$output['streams'][0]['width'] ?? 0);
+                $motion_detected_file->setVideoHeight((int)$output['streams'][0]['height'] ?? 0);
                 return $motion_detected_file;
             }
-        } catch (ProcessFailedException $exception) {
-            $this->conversion_logger->error("Failed to retrieve video metadata", [
+        }
+        catch (ProcessFailedException $exception)
+        {
+            $this->conversion_logger->error('Failed to retrieve video metadata', [
                 'exception' => $exception->getMessage(),
                 'file'      => $file_path,
             ]);

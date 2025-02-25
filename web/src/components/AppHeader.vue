@@ -15,8 +15,6 @@
 </template>
 
 <script>
-import {Preferences} from "@capacitor/preferences";
-
 export default {
   methods: {
     openCalendar() {
@@ -37,7 +35,7 @@ export default {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  background-color: #222;
+  background-color: var(--p-content-background);
   padding: 10px 20px;
   border-bottom: 1px solid #444;
   color: white;

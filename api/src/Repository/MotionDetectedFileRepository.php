@@ -27,28 +27,37 @@ class MotionDetectedFileRepository extends ServiceEntityRepository
         return PaginationService::paginateQueryBuilder($query_builder, $page, $limit);
     }
 
-    public function returnPaginatedCalendar(\DateTime $date, ?\DateTime $since = null): array
+    public function countItemsPerHour(\DateTime $since_datetime, \DateTime $end_of_day, MotionDetectedFileTypeEnum $type_enum): array
     {
-        $start_time = $date->format('Y-m-d 00:00:00');
-        $end_time = $date->format('Y-m-d 23:59:59');
-
-        $qb = $this->createQueryBuilder('m')
-            ->where('m.created_at BETWEEN :start_time AND :end_time')
-            ->andWhere('m.processed = :processed')
+        return $this->createQueryBuilder('i')
+            ->select('HOUR(i.created_at) AS hour, COUNT(i.id) AS count')
+            ->where('i.created_at BETWEEN :since_datetime AND :end_of_day')
+            ->andWhere('i.processed = :processed')
+            ->andWhere('i.type = :type')
+            ->setParameter('since_datetime', $since_datetime)
+            ->setParameter('end_of_day', $end_of_day)
             ->setParameter('processed', true)
-            ->setParameter('start_time', $start_time)
-            ->setParameter('end_time', $end_time);
-
-        if ($since) {
-            $qb->andWhere('m.created_at > :since')
-                ->setParameter('since', $since->format('Y-m-d H:i:s'));
-        }
-
-        return $qb->orderBy('m.created_at', Order::Descending->value)
+            ->setParameter('type', $type_enum->value)
+            ->groupBy('hour')
+            ->orderBy('hour', 'ASC')
             ->getQuery()
             ->getResult();
     }
 
+    public function returnPaginatedCalendar(\DateTime $start_time, \DateTime $end_time, MotionDetectedFileTypeEnum $type_enum): array
+    {
+        return $this->createQueryBuilder('m')
+            ->where('m.created_at BETWEEN :start_time AND :end_time')
+            ->andWhere('m.processed = :processed')
+            ->andWhere('m.type = :type')
+            ->setParameter('processed', true)
+            ->setParameter('start_time', $start_time)
+            ->setParameter('end_time', $end_time)
+            ->setParameter('type', $type_enum->value)
+            ->orderBy('m.created_at', Order::Descending->value)
+            ->getQuery()
+            ->getResult();
+    }
 
     public function getTotalFileSize(MotionDetectedFileTypeEnum $type): int
     {

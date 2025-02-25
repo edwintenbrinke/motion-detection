@@ -8,6 +8,7 @@ use App\DTO\MotionDetectedFile\MotionDetectedFileCalendarOutputDTO;
 use App\DTO\MotionDetectedFile\MotionDetectedFileInputDTO;
 use App\DTO\MotionDetectedFile\MotionDetectedFileOutputDTO;
 use App\Entity\MotionDetectedFile;
+use App\Enum\MotionDetectedFileTypeEnum;
 use App\Repository\MotionDetectedFileRepository;
 use App\Service\PaginationService;
 use App\Trait\ValidationTrait;
@@ -65,7 +66,7 @@ class MotionDetectedFileController extends AbstractController
             throw new BadRequestHttpException();
         }
 
-        $data = $detected_file_repo->returnPaginatedCalendar(new \DateTime($date));
+        $data = $detected_file_repo->returnPaginatedCalendar(new \DateTime($date), new \DateTime($date));
         return $this->json(
             $this->serializeEntityArrayToDTOs($data, MotionDetectedFileCalendarOutputDTO::class)
         );
@@ -74,8 +75,40 @@ class MotionDetectedFileController extends AbstractController
     #[Route('/calendar/{date}', name: 'api_motion_detected_file_get_calendar_day', methods: ['GET'])]
     public function getCalendarDayAction(Request $request, MotionDetectedFileRepository $detected_file_repo, string $date): Response
     {
-        $since = $request->query->has('since') ? new \DateTime($request->query->getString('since')) : null;
-        $data = $detected_file_repo->returnPaginatedCalendar(new \DateTime($date), $since);
+        $since = $request->query->get('since');
+        try
+        {
+            $since = $since ? new \DateTime($since) : (new \DateTime($date))->setTime(0, 0);
+            $end_of_day = (clone $since)->setTime(23, 59, 59);
+        }
+        catch (\Exception $e)
+        {
+            return $this->json(['error' => 'Invalid datetime format'], Response::HTTP_BAD_REQUEST);
+        }
+        $type_enum = $request->query->has('important') ? MotionDetectedFileTypeEnum::important : MotionDetectedFileTypeEnum::normal;
+
+        $hourly_counts = $detected_file_repo->countItemsPerHour($since, $end_of_day, $type_enum);
+
+        arsort($hourly_counts);
+
+        return $this->json(array_values($hourly_counts));
+    }
+
+    #[Route('/calendar/{date}/{hour}', name: 'api_motion_detected_file_get_calendar_day_hour', methods: ['GET'])]
+    public function getCalendarDayHourAction(Request $request, MotionDetectedFileRepository $detected_file_repo, string $date, int $hour): Response
+    {
+        try
+        {
+            $start_date = (new \DateTime($date))->setTime($hour, 0);
+            $end_date = (clone $start_date)->setTime($hour + 1, 0);
+        }
+        catch (\Exception $e)
+        {
+            return $this->json(['error' => 'Invalid datetime format'], 400);
+        }
+        $type_enum = $request->query->has('important') ? MotionDetectedFileTypeEnum::important : MotionDetectedFileTypeEnum::normal;
+
+        $data = $detected_file_repo->returnPaginatedCalendar($start_date, $end_date, $type_enum);
         return $this->json(
             $this->serializeEntityArrayToDTOs($data, MotionDetectedFileCalendarOutputDTO::class)
         );

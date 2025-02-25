@@ -37,15 +37,17 @@ class MotionDetectedFileFixtures extends Fixture
         );
         $manager->persist($motion_detected_file2);
 
-        for ($i = 0; $i < 10; ++$i)
+        for ($i = 0; $i < 50; ++$i)
         {
             $motion_detected_file = new MotionDetectedFile(
                 "file name $i",
                 "file path $i",
                 0,
-                MotionDetectedFileTypeEnum::normal,
+                $i % 2 === 0 ? MotionDetectedFileTypeEnum::normal : MotionDetectedFileTypeEnum::important,
                 $now = $this->remove30Minutes($now)
             );
+            $motion_detected_file->setProcessed(true);
+            $motion_detected_file->setVideoDuration($i);
             $manager->persist($motion_detected_file);
         }
 
@@ -54,6 +56,6 @@ class MotionDetectedFileFixtures extends Fixture
 
     private function remove30Minutes(\DateTimeImmutable $date): \DateTimeImmutable
     {
-        return $date->modify('-30 minutes');
+        return $date->modify('-7 minutes');
     }
 }
