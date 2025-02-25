@@ -124,13 +124,15 @@ import {defineComponent} from "vue";
 import {useRoute, useRouter} from "vue-router";
 import dayjs from "dayjs";
 import SingleVideoPlayer from "@/components/VideoPlayer.vue";
+import {useVideoStore} from "@/stores/video";
 
 export default defineComponent({
   components: {SingleVideoPlayer},
   setup() {
     const route = useRoute();
     const router = useRouter();
-    return { route, router, dayjs };
+    const videoStore = useVideoStore();
+    return { route, router, dayjs, videoStore };
   },
   data() {
     return {
@@ -145,29 +147,54 @@ export default defineComponent({
     };
   },
   mounted() {
-    // Restore filter preference if saved in localStorage
-    const savedFilter = localStorage.getItem('motionDetectionImportanceFilter');
-    if (savedFilter) {
-      this.showImportantOnly = savedFilter === 'important';
-    }
-
+    // Restore filter preference from store
+    this.showImportantOnly = this.videoStore.importanceFilter;
     this.load();
   },
   methods: {
     async load() {
       // Reset nodes when loading new data
       this.nodes = [];
+      const dateString = this.currentDate.format("YYYY-MM-DD");
 
       try {
-        const dateString = this.currentDate.format("YYYY-MM-DD");
-        const url = `/api/motion-detected-file/calendar/${dateString}`;
+        // Check if we should refresh the data from API
+        const shouldRefresh = this.videoStore.shouldRefreshDailyData(dateString, this.showImportantOnly);
 
-        // Add the important query parameter if showing important events only
-        const params = this.showImportantOnly ? { important: true } : {};
+        // Try to get cached data first
+        let hourSummaries = this.videoStore.getDailyHoursForDate(dateString, this.showImportantOnly);
 
-        const response = await this.$api.get(url, { params });
+        // If we need to refresh or don't have data, fetch from API
+        if (shouldRefresh || hourSummaries.length === 0) {
+          const url = `/api/motion-detected-file/calendar/${dateString}`;
+          const params = this.showImportantOnly ? { important: true } : {};
 
-        this.nodes = response.data.map((item) => ({
+          // Add the since parameter for efficiency if we have existing data
+          if (hourSummaries.length > 0) {
+            params.since = this.videoStore.getSinceParameterForDate(dateString, this.showImportantOnly);
+          }
+
+          const response = await this.$api.get(url, { params });
+
+          // If we're using the since parameter, merge the new data with existing data
+          if (params.since && hourSummaries.length > 0) {
+            // Merge the new data with the existing data
+            // This assumes the API returns only new records since the provided timestamp
+            const newData = response.data;
+
+            // Update existing hours with new counts
+            hourSummaries = this.mergeHourSummaries(hourSummaries, newData);
+          } else {
+            // Complete replacement of data
+            hourSummaries = response.data;
+          }
+
+          // Store the data in the Pinia store
+          this.videoStore.setDailyHoursForDate(dateString, hourSummaries, this.showImportantOnly);
+        }
+
+        // Transform the data for display
+        this.nodes = hourSummaries.map((item) => ({
           key: `${item.hour}`,
           label: `${item.hour}:00`,
           data: item,
@@ -179,12 +206,34 @@ export default defineComponent({
       }
     },
 
+    mergeHourSummaries(existingData, newData) {
+      // Create a map of existing data by hour
+      const hourMap = {};
+      existingData.forEach(item => {
+        hourMap[item.hour] = item;
+      });
+
+      // Update or add new data
+      newData.forEach(newItem => {
+        if (hourMap[newItem.hour]) {
+          // Update count if the hour already exists
+          hourMap[newItem.hour].count = newItem.count;
+        } else {
+          // Add new hour data
+          hourMap[newItem.hour] = newItem;
+        }
+      });
+
+      // Convert back to array and sort by hour
+      return Object.values(hourMap).sort((a, b) => b.hour - a.hour);
+    },
+
     setImportanceFilter(showImportantOnly) {
       if (this.showImportantOnly !== showImportantOnly) {
         this.showImportantOnly = showImportantOnly;
 
-        // Save preference to localStorage
-        localStorage.setItem('motionDetectionImportanceFilter', showImportantOnly ? 'important' : 'normal');
+        // Save preference to store
+        this.videoStore.setImportanceFilter(showImportantOnly);
 
         // Reset expanded states
         this.expandKey = {};
@@ -212,17 +261,45 @@ export default defineComponent({
     async loadHourData(node) {
       if (node.children) return; // Prevent multiple calls
 
-      this.loadingKeys.add(node.key);
+      const hourString = node.key;
+      const dateString = this.currentDate.format("YYYY-MM-DD");
+
       try {
-        const hourString = node.key;
-        const dateString = this.currentDate.format("YYYY-MM-DD");
-        const url = `/api/motion-detected-file/calendar/${dateString}/${hourString}`;
+        this.loadingKeys.add(node.key);
 
-        const params = this.showImportantOnly ? { important: true } : {};
+        // Check if we should refresh the data from API
+        const shouldRefresh = this.videoStore.shouldRefreshHourlyData(
+            dateString,
+            hourString,
+            this.showImportantOnly
+        );
 
-        const response = await this.$api.get(url, { params });
+        // Try to get cached data first
+        let hourlyVideos = this.videoStore.getVideosForHour(
+            dateString,
+            hourString,
+            this.showImportantOnly
+        );
 
-        node.children = response.data.map((item, index) => ({
+        // If we need to refresh or don't have data, fetch from API
+        if (shouldRefresh || hourlyVideos.length === 0) {
+          const url = `/api/motion-detected-file/calendar/${dateString}/${hourString}`;
+          const params = this.showImportantOnly ? { important: true } : {};
+
+          const response = await this.$api.get(url, { params });
+          hourlyVideos = response.data;
+
+          // Store the data in the Pinia store
+          this.videoStore.setVideosForHour(
+              dateString,
+              hourString,
+              hourlyVideos,
+              this.showImportantOnly
+          );
+        }
+
+        // Transform the data for display
+        node.children = hourlyVideos.map((item, index) => ({
           key: `${node.key}-${index}`,
           data: item,
           leaf: true,
@@ -253,6 +330,9 @@ export default defineComponent({
       // Build the video URL based on the detection ID
       this.selectedVideoUrl = `/api/video/stream/${item.data.file_name}`;
 
+      // Store the selected video ID in the store
+      this.videoStore.selectVideo(item.data.file_name);
+
       // Open the dialog
       this.videoDialogVisible = true;
     },
@@ -263,6 +343,7 @@ export default defineComponent({
       setTimeout(() => {
         this.selectedVideoUrl = null;
         this.selectedVideoData = null;
+        this.videoStore.clearSelectedVideo();
       }, 300); // A small delay to let transition complete
     },
 
@@ -272,6 +353,9 @@ export default defineComponent({
       const newDate = this.currentDate.format("YYYY-MM-DD");
       if (this.route.params.date !== newDate) {
         this.router.push(`/calendar/${newDate}`);
+        Object.keys(this.expandKey).forEach((key) => {
+          this.expandKey[key] = false;
+        });
         this.load();
       }
     }
@@ -291,6 +375,7 @@ export default defineComponent({
 </script>
 
 <style scoped>
+/* Styles remain unchanged */
 .motion-detection-container {
   display: flex;
   flex-direction: column;

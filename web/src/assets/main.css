@@ -7,13 +7,11 @@ body {
 
 /* Dark theme styles for FullCalendar */
 .fc {
-  background-color: #1e1e1e;
   color: #ffffff;
 }
 
 /* Header styling */
 .fc-header-toolbar {
-  background-color: #1e1e1e;
   padding: 1rem;
 }
 

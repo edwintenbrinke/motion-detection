@@ -79,12 +79,15 @@ class MotionDetectedFileController extends AbstractController
         try
         {
             $since = $since ? new \DateTime($since) : (new \DateTime($date))->setTime(0, 0);
-            $end_of_day = (clone $since)->setTime(23, 59, 59);
-        }
-        catch (\Exception $e)
-        {
+            $end_of_day = (new \DateTime($date))->setTime(23, 59, 59);
+
+            if ($since->format('Y-m-d') !== $end_of_day->format('Y-m-d')) {
+                $since = (new \DateTime($date))->setTime(0, 0);
+            }
+        } catch (\Exception $e) {
             return $this->json(['error' => 'Invalid datetime format'], Response::HTTP_BAD_REQUEST);
         }
+
         $type_enum = $request->query->has('important') ? MotionDetectedFileTypeEnum::important : MotionDetectedFileTypeEnum::normal;
 
         $hourly_counts = $detected_file_repo->countItemsPerHour($since, $end_of_day, $type_enum);
