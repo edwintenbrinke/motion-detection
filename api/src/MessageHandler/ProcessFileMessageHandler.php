@@ -18,13 +18,15 @@ class ProcessFileMessageHandler
     private LoggerInterface $conversion_logger;
     private string $public_recordings_folder;
     private string $ffmpeg_path;
+    private bool $flip_vertical;
 
-    public function __construct(EntityManagerInterface $entity_manager, LoggerInterface $conversion_logger, string $public_recordings_folder, string $ffmpeg_path = '/usr/bin/ffmpeg')
+    public function __construct(EntityManagerInterface $entity_manager, LoggerInterface $conversion_logger, string $public_recordings_folder, string $ffmpeg_path = '/usr/bin/ffmpeg', bool $flip_vertical = true)
     {
         $this->public_recordings_folder = $public_recordings_folder;
         $this->conversion_logger = $conversion_logger;
         $this->entity_manager = $entity_manager;
         $this->ffmpeg_path = $ffmpeg_path;
+        $this->flip_vertical = $flip_vertical;
     }
 
     public function __invoke(ProcessFileMessage $message)
@@ -63,15 +65,26 @@ class ProcessFileMessageHandler
             'output' => $output_file_path,
         ]);
 
-        // Construct the FFmpeg command to convert the H264 video to MP4
-        $process = new Process([
+        // Construct the FFmpeg command
+        $command = [
             $this->ffmpeg_path,
             '-i', $input_file_path, // Input file
             '-c:v', 'libx264',      // Video codec
             '-c:a', 'aac',          // Audio codec
             '-strict', 'experimental', // To allow experimental codecs if needed
-            $output_file_path       // Output file
-        ]);
+        ];
+
+        // Apply vertical flip filter if needed
+        if ($this->flip_vertical)
+        {
+            $command[] = '-vf';
+            $command[] = 'vflip';
+        }
+
+        // Add the output file path
+        $command[] = $output_file_path;
+
+        $process = new Process($command);
 
         try
         {

@@ -11,5 +11,5 @@ framework:
 
         routing:
             # Route your messages to the transports
-            App\Message\ProcessFileMessage: sync
+            App\Message\ProcessFileMessage: async
             App\Message\FileCleanupMessage: async
