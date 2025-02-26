@@ -1,11 +1,12 @@
 import { defineStore } from 'pinia';
 import {Preferences} from "@capacitor/preferences";
 
+const initState = {
+    settings: null,
+    user: null
+};
 export const useInitializeStore = defineStore('initialize', {
-    state: () => ({
-        settings: null,
-        user: null
-    }),
+    state: () => ({ ...initState }),
     actions: {
         async getInitializingInfo(force = false) {
             const { value: token } = await Preferences.get({ key: 'authToken' });
@@ -40,6 +41,9 @@ export const useInitializeStore = defineStore('initialize', {
         },
         updateDetectionAreaPoints(points) {
             this.settings.detection_area_points = points;
+        },
+        resetStore() {
+            this.$reset();
         }
     },
     persist: true,

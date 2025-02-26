@@ -2,6 +2,7 @@
   <component :is="this.$route.meta.layoutComponent">
     <slot/>
   </component>
+  <Toast style="max-width: 90vw; overflow: hidden;" position="bottom-center" />
 </template>
 
 <script>

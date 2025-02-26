@@ -81,10 +81,13 @@ class MotionDetectedFileController extends AbstractController
             $since = $since ? new \DateTime($since) : (new \DateTime($date))->setTime(0, 0);
             $end_of_day = (new \DateTime($date))->setTime(23, 59, 59);
 
-            if ($since->format('Y-m-d') !== $end_of_day->format('Y-m-d')) {
+            if ($since->format('Y-m-d') !== $end_of_day->format('Y-m-d'))
+            {
                 $since = (new \DateTime($date))->setTime(0, 0);
             }
-        } catch (\Exception $e) {
+        }
+        catch (\Exception $e)
+        {
             return $this->json(['error' => 'Invalid datetime format'], Response::HTTP_BAD_REQUEST);
         }
 

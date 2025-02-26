@@ -5,6 +5,18 @@ body {
   font-family: 'Inter', sans-serif;
 }
 
+/* Remove number input arrows */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Firefox */
+input[type=number] {
+  -moz-appearance: textfield;
+}
+
 /* Dark theme styles for FullCalendar */
 .fc {
   color: #ffffff;
@@ -37,7 +49,6 @@ body {
 
 /* Calendar body styling */
 .fc-day {
-  background-color: #1e1e1e !important;
   border-color: #333333 !important;
 }
 

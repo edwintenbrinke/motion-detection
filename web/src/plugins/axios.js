@@ -16,6 +16,7 @@ const axiosPlugin = {
     install: (app) => {
         // Initialize the store after Pinia is installed
         loadingStore = useLoadingStore();
+        const toast = app.config.globalProperties.$toast;
 
         // Request interceptor
         apiClient.interceptors.request.use(
@@ -70,8 +71,15 @@ const axiosPlugin = {
                     if (error.response.status === 401) {
                         try {
                             console.warn('[Axios Error] 401 Unauthorized: Removing token and logging out');
+                            CookieHelper.deleteCookie('username');
                             await Preferences.remove({ key: 'authToken' }); // Remove the stored token
                             await apiClient.post('/api/logout');
+                            toast.add({
+                                severity: 'error',
+                                summary: 'Unauthorized',
+                                detail: 'Session expired or unauthorized. You will be logged out.',
+                                life: 3000,
+                            });
                         } catch (logoutError) {
                             CookieHelper.deleteCookie('username');
                             console.error('[Axios Error] Error during logout:', JSON.stringify(logoutError));
@@ -86,7 +94,6 @@ const axiosPlugin = {
                         data: error.config?.data,
                         request: error.request,
                     }));
-                    console.error('[Axios Error] This might be a network issue or a CORS error. Check the browser console for more details.');
                 } else {
                     console.error('[Axios Error] General error:', JSON.stringify({ message: error.message }));
                 }

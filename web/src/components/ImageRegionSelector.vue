@@ -1,19 +1,16 @@
 <template>
   <header class="header">
-    <button @click="saveClick" class="button">
+    <Button @click="saveClick" severity="secondary" >
       <i class="fa-regular fa-floppy-disk"></i>
-      Save
-    </button>
+    </Button>
 
-    <button @click="resetClick" class="button">
+    <Button @click="resetClick" severity="secondary" >
       <i class="fa-solid fa-rotate"></i>
-      Reset
-    </button>
+    </Button>
 
-    <button @click="placeholderClick" class="button">
+    <Button @click="placeholderClick" severity="secondary" >
       <i class="fa-solid fa-camera"></i>
-      Image
-    </button>
+    </Button>
 
     <input
         type="number"
@@ -22,10 +19,9 @@
         class="input"
     />
 
-    <button @click="closeClick" class="button">
+    <Button @click="closeClick" severity="secondary" >
       <i class="fa-solid fa-xmark"></i>
-      Close
-    </button>
+    </Button>
   </header>
   <div ref="containerRef" class="canvas-container">
     <canvas
@@ -64,6 +60,7 @@ export default {
   created() {
     this.initStore = useInitializeStore()
     this.relativePoints = this.initStore.getDetectionAreaPoints() || []
+    this.maxPoints = (this.initStore.getDetectionAreaPoints() || []).length
     this.imageUrl = this.initStore.getImageUrl();
   },
 
@@ -232,6 +229,7 @@ export default {
         await this.$api.post(`/api/user/settings/1/placeholder-image`);
         this.loadImage();
         this.renderCanvas();
+        this.$toast.add({ severity: 'success', summary: 'Success', detail: 'Reloaded placeholder image.', life: 2000 });
       } catch (error) {
         console.error('Failed to save settings:', error)
       }
@@ -245,8 +243,8 @@ export default {
       try {
         await this.$api.patch(`/api/user/settings/1/image-region`, {detection_area_points: this.relativePoints});
         this.initStore.updateDetectionAreaPoints(this.relativePoints);
-        // await this.$api.post(`/api/user/settings/${this.settings.id}/image-region`, {detection_area_points: this.settings.detection_area_points});
         this.$router.push('/settings');
+        this.$toast.add({ severity: 'success', summary: 'Success', detail: 'Successfully saved the image region.', life: 2000 });
       } catch (error) {
         console.error('Failed to save settings:', error)
       }
@@ -270,55 +268,24 @@ export default {
 }
 
 .header {
-  background-color: #222;
-  padding: 16px;
+  padding: 8px;
   display: flex;
   align-items: center;
-  gap: 20px;
   border-bottom: 1px solid #444;
-}
-
-.button {
-  flex: 1;
-  padding: 10px;
-  border: 1px solid #444;
-  border-radius: 4px;
-  font-size: 16px;
-  cursor: pointer;
-  text-align: center;
-  background-color: #1e1e1e;
-  color: white;
-  transition: color 0.3s;
-}
-
-.button:hover {
-  color: #00b4d8;
+  justify-content: space-between;
 }
 
 .input {
-  max-width: 80px;
-  background-color: #1e1e1e;
+  max-width: 40px;
   color: white;
   border: 1px solid #444;
   border-radius: 4px;
-  padding: 10px;
+  padding: 4px;
   font-size: 16px;
 }
 
 .input:focus {
   outline: none;
   border-color: #52525B;
-}
-
-/* Remove number input arrows */
-.input::-webkit-outer-spin-button,
-.input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-
-/* Firefox */
-.input[type=number] {
-  -moz-appearance: textfield;
 }
 </style>

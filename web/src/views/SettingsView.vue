@@ -1,71 +1,82 @@
 <template>
-    <form class="settings-form">
-      <div class="button-container">
-        <button type="button" @click="handleImageRegion" class="button">
-          <i class="fa-solid fa-plus"></i>
-          Configure detection region
-        </button>
-      </div>
-
+  <form class="settings-form">
+    <div class="form-row" style="margin-top: 24px">
       <div class="form-group">
         <label>Motion pixel threshold</label>
         <input
-          type="number"
-          v-model="settings.motion_threshold"
+            type="number"
+            v-model="settings.motion_threshold"
         >
       </div>
 
       <div class="form-group">
         <label>ROI Motion pixel threshold</label>
         <input
-          type="number"
-          v-model="settings.roi_motion_threshold"
+            type="number"
+            v-model="settings.roi_motion_threshold"
         >
       </div>
+    </div>
 
+    <div class="form-row">
       <div class="form-group">
         <label>Recording extension</label>
         <input
-          type="number"
-          v-model="settings.recording_extension"
+            type="number"
+            v-model="settings.recording_extension"
         >
       </div>
 
       <div class="form-group">
         <label>Max recording duration</label>
         <input
-          type="number"
-          v-model="settings.max_recording_duration"
+            type="number"
+            v-model="settings.max_recording_duration"
         >
       </div>
+    </div>
 
-      <div class="form-group">
-        <label>Max disk usage in GB per type</label>
-        <input
+    <div class="form-group">
+      <label>Max disk usage in GB per type</label>
+      <input
           type="number"
           v-model="settings.max_disk_usage_in_gb"
-        >
-      </div>
-
-      <div class="button-container">
-        <button type="button" @click="handleLogout" class="button">
-          <i class="fa-solid fa-right-from-bracket"></i>
-          Logout
-        </button>
-        <button type="button" @click="saveSettings" class="button">
-          <i class="fa-regular fa-floppy-disk"></i>
-          Save changes
-        </button>
-      </div>
-    </form>
+      >
+    </div>
+    <div class="button-container">
+      <button type="button" @click="handleImageRegion" class="button action-button">
+        <i class="fa-solid fa-plus"></i>
+        Region
+      </button>
+      <button type="button" @click="resetLocalStorage" class="button action-button">
+        <i class="fa-solid fa-rotate-right"></i>
+        Storage
+      </button>
+    </div>
+    <div class="button-container">
+      <button type="button" @click="handleLogout" class="button">
+        <i class="fa-solid fa-right-from-bracket"></i>
+        Logout
+      </button>
+      <button type="button" @click="saveSettings" class="button">
+        <i class="fa-regular fa-floppy-disk"></i>
+        Save changes
+      </button>
+    </div>
+  </form>
 </template>
 
 <script>
 import {Preferences} from "@capacitor/preferences";
 import {useInitializeStore} from "@/stores/initialize.js";
+import {useVideoStore} from "@/stores/video.js";
+import Toast from 'primevue/toast';
 
 export default {
   name: 'SettingsPage',
+  components: {
+    Toast
+  },
   data() {
     return {
       settings: {
@@ -78,8 +89,7 @@ export default {
     }
   },
   async created() {
-    const initStore = useInitializeStore();
-    this.settings = initStore.getSettings();
+    this.settings = useInitializeStore().getSettings();
   },
   methods: {
     handleImageRegion() {
@@ -89,6 +99,7 @@ export default {
       try {
         await this.$api.patch('/api/user/settings/' + this.settings.id, this.settings)
         this.$router.push('/calendar');
+        this.$toast.add({ severity: 'success', summary: 'Success', detail: 'Successfully saved settings.', life: 2000 });
       } catch (error) {
         console.error('Failed to save settings:', error)
       }
@@ -97,6 +108,12 @@ export default {
       await this.$api.get('/api/logout')
       await Preferences.remove({ key: 'authToken' });
       this.$router.push('/');
+      this.$toast.add({ severity: 'success', summary: 'Success', detail: 'Successfully logged out.', life: 2000 });
+    },
+    resetLocalStorage() {
+      useVideoStore().resetStore();
+      useInitializeStore().resetStore()
+      this.$toast.add({ severity: 'success', summary: 'Success', detail: 'Successfully reset storage.', life: 2000 });
     }
   }
 }
@@ -112,6 +129,12 @@ export default {
   gap: 24px;
   padding: 0 16px;
   box-sizing: border-box;
+}
+
+.form-row {
+  display: flex;
+  gap: 16px;
+  width: 100%;
 }
 
 .form-group {
@@ -144,7 +167,12 @@ input::placeholder {
 .button-container {
   display: flex;
   gap: 16px;
-  margin-top: 24px;
+}
+
+.action-button {
+  flex: 1;
+  padding: 10px;
+  font-size: 14px;
 }
 
 .button {
@@ -156,11 +184,10 @@ input::placeholder {
   cursor: pointer;
   text-align: center;
   background-color: #1e1e1e;
-  color: white;
   transition: color 0.3s;
 }
 
 .button:hover {
-  color: #00b4d8;
+  color: var(--p-primary-color);
 }
 </style>

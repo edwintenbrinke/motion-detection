@@ -1,8 +1,5 @@
 <template>
   <div class="video-player-container">
-    <div v-if="isLoading" class="loading-container">
-      <ProgressSpinner class="loading-spinner" strokeWidth="4" />
-    </div>
     <div v-if="!isLoading && error" class="error-message">
       <i class="pi pi-exclamation-triangle error-icon"></i>
       <p>Failed to load video</p>
@@ -99,7 +96,6 @@ export default {
 .video-player-container {
   width: 100%;
   height: 100%;
-  min-height: 200px;
   background-color: #000;
   position: relative;
   border-radius: 4px;

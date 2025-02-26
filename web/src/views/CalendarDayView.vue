@@ -1,12 +1,22 @@
 <template>
   <div class="motion-detection-container">
+    <ScrollTop />
+    <button
+        v-if="isAnyExpanded"
+        @click="closeAnyExpanded"
+        class="p-button p-component p-button-icon-only p-button-rounded expand-button"
+        :style="collapseButtonStyle"
+    >
+      <i class="fa-solid fa-compress" />
+    </button>
+
     <!-- Date navigator -->
     <div class="date-navigator p-d-flex p-jc-between p-ai-center p-mb-3">
-      <Button icon="pi pi-chevron-left" severity="secondary" @click="changeDate(-1)">
+      <Button icon="pi pi-chevron-left" @click="changeDate(-1)">
         <i class="fas fa-chevron-left"></i>
       </Button>
       <h2 class="date-display">{{ currentDate.format("MMMM D, YYYY") }}</h2>
-      <Button icon="pi pi-chevron-right" severity="secondary" @click="changeDate(1)">
+      <Button icon="pi pi-chevron-right" @click="changeDate(1)">
         <i class="fas fa-chevron-right"></i>
       </Button>
     </div>
@@ -89,7 +99,6 @@
         v-model:visible="videoDialogVisible"
         :modal="true"
         :dismissableMask="true"
-        :closable="true"
         class="video-dialog"
         :style="{ width: '90vw', maxWidth: '800px' }"
     >
@@ -99,13 +108,6 @@
             {{ dayjs(selectedVideoData.created_at).format("MMM D, YYYY • HH:mm:ss") }} •
             {{ formatVideoDuration(selectedVideoData.video_duration) }}
           </span>
-
-          <Button
-              icon="pi pi-times"
-              @click="closeVideoDialog"
-              class="p-button-rounded p-button-text"
-              aria-label="Close"
-          />
         </div>
       </template>
 
@@ -144,12 +146,19 @@ export default defineComponent({
       videoDialogVisible: false,
       selectedVideoUrl: null,
       selectedVideoData: null,
+      scrollTopActive: false
     };
   },
   mounted() {
     // Restore filter preference from store
     this.showImportantOnly = this.videoStore.importanceFilter;
     this.load();
+
+    this.checkScrollTopStatus()
+    window.addEventListener('scroll', this.checkScrollTopStatus)
+  },
+  beforeUnmount() {
+    window.removeEventListener('scroll', this.checkScrollTopStatus)
   },
   methods: {
     async load() {
@@ -337,16 +346,6 @@ export default defineComponent({
       this.videoDialogVisible = true;
     },
 
-    closeVideoDialog() {
-      this.videoDialogVisible = false;
-      // Reset video source to free memory
-      setTimeout(() => {
-        this.selectedVideoUrl = null;
-        this.selectedVideoData = null;
-        this.videoStore.clearSelectedVideo();
-      }, 300); // A small delay to let transition complete
-    },
-
     changeDate(offset) {
       // Change current date by offset days
       this.currentDate = this.currentDate.add(offset, 'day');
@@ -357,6 +356,31 @@ export default defineComponent({
           this.expandKey[key] = false;
         });
         this.load();
+      }
+    },
+
+    closeAnyExpanded() {
+      Object.keys(this.expandKey).forEach(key => {
+        this.expandKey[key] = false;
+      });
+    },
+
+    checkScrollTopStatus() {
+      const scrollTopButton = document.querySelector('.p-scrolltop')
+      this.scrollTopActive = scrollTopButton &&
+          getComputedStyle(scrollTopButton).display !== 'none' &&
+          scrollTopButton.classList.contains('p-scrolltop-leave-active') === false
+    }
+  },
+
+  computed: {
+    isAnyExpanded() {
+      return Object.values(this.expandKey).some(value => value);
+    },
+    collapseButtonStyle() {
+      return {
+        bottom: this.scrollTopActive ? '70px' : '20px',
+        zIndex: 5
       }
     }
   },
@@ -548,7 +572,6 @@ export default defineComponent({
 }
 
 .video-container {
-  height: 350px;
   margin: -1rem;
   border-radius: 0;
   overflow: hidden;
@@ -571,5 +594,11 @@ export default defineComponent({
 .expand-leave-to {
   max-height: 0;
   opacity: 0;
+}
+
+.expand-button {
+  position: fixed !important;
+  inset-block-end: 20px;
+  inset-inline-end: 20px;
 }
 </style>

@@ -1,14 +1,16 @@
 import { defineStore } from 'pinia';
 import dayjs from 'dayjs';
 
+const getDefaultState = () => ({
+    hourlyVideosByDate: {}, // Stores hourly data in format: {YYYY-MM-DD: {hour: videos[]}}
+    dailyVideosByDate: {}, // Stores daily hour summary in format: {YYYY-MM-DD: hourSummary[]}
+    lastFetchTimes: {}, // Track when data was last fetched: {YYYY-MM-DD: ISOString, YYYY-MM-DD-HH: ISOString}
+    selectedVideoId: null,
+    importanceFilter: false, // Current filter state
+});
+
 export const useVideoStore = defineStore('video', {
-    state: () => ({
-        hourlyVideosByDate: {}, // Stores hourly data in format: {YYYY-MM-DD: {hour: videos[]}}
-        dailyVideosByDate: {}, // Stores daily hour summary in format: {YYYY-MM-DD: hourSummary[]}
-        lastFetchTimes: {}, // Track when data was last fetched: {YYYY-MM-DD: ISOString, YYYY-MM-DD-HH: ISOString}
-        selectedVideoId: null,
-        importanceFilter: false, // Current filter state
-    }),
+    state: () => getDefaultState(),
 
     getters: {
         getDailyHoursForDate: (state) => (date, showImportantOnly = false) => {
@@ -182,17 +184,12 @@ export const useVideoStore = defineStore('video', {
 
         clearSelectedVideo() {
             this.selectedVideoId = null;
+        },
+        resetStore() {
+            this.$reset();
         }
     },
 
     // Enable persistence of the store in localStorage
-    persist: {
-        enabled: true,
-        strategies: [
-            {
-                key: 'motion-detection-store',
-                storage: localStorage,
-            },
-        ],
-    },
+    persist: true
 });
