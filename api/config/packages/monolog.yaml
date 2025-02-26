@@ -17,7 +17,7 @@ monolog:
             type: rotating_file
             path: "%kernel.logs_dir%/request_response.log"  # Path to the conversion logs
             level: debug
-            max_files: 2
+            max_files: 7
             channels: [ 'request_response_logger' ]
             formatter: monolog.formatter.line
 
@@ -25,9 +25,11 @@ when@dev:
     monolog:
         handlers:
             main:
-                type: stream
+                type: rotating_file
                 path: "%kernel.logs_dir%/%kernel.environment%.log"
                 level: debug
+                max_files: 7
+                formatter: monolog.formatter.line
                 channels: ["!event"]
             console:
                 type: console
