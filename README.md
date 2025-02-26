@@ -3,10 +3,9 @@ Save &amp; Display video feed based on motion detection
 
 
 ### TODO List
-add swagger/openAPI to api FUCk this annoying shit keeps complaining about swagger_ui not available \
-fingerprint auth on app (https://claude.ai/chat/7d04052c-77b0-4388-9661-dbe98149e49d)
+fingerprint auth on app (https://claude.ai/chat/7d04052c-77b0-4388-9661-dbe98149e49d)\
 php tests?\
-disk usage/server specs page?\
+disk usage/server specs page?
 
 ##
 BUG

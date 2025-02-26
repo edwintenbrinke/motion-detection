@@ -1,0 +1,48 @@
+nelmio_api_doc:
+    documentation:
+        info:
+            title: Motion Detection
+            description: Motion detection API that delivers the Raspberry Pi stream & video's.
+            version: 1.0.0
+        components:
+            securitySchemes:
+                Bearer:
+                    type: http
+                    scheme: bearer
+                    bearerFormat: JWT
+                    description: 'Value: Bearer {jwt}'
+        security:
+            - Bearer: []
+        paths:
+            /api/login:
+                post:
+                    tags:
+                        - Authentication
+                    summary: Login into the api
+                    requestBody:
+                        description: AppUser to login
+                        required: true
+                        content:
+                            application/json:
+                                schema:
+                                    type: object
+                                    properties:
+                                        username:
+                                            type: string
+                                        password:
+                                            type: string
+                    responses:
+                        '200':
+                            description: Login successful
+                            content:
+                                application/json:
+                                    schema:
+                                        type: object
+                                        properties:
+                                            token:
+                                                type: string
+                                            message:
+                                                type: string
+    areas: # to filter documented areas
+        path_patterns:
+            - ^/api(?!/doc$) # Accepts routes under /api except /api/doc

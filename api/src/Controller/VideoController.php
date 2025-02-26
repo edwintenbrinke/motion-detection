@@ -9,6 +9,7 @@ use App\Message\FileCleanupMessage;
 use App\Message\ProcessFileMessage;
 use App\Service\FileHandler;
 use Doctrine\ORM\EntityManagerInterface;
+use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\File\File;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -20,9 +21,31 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
+#[OA\Tag(name: 'Videos')]
 #[Route('/api/video')]
 class VideoController extends AbstractController
 {
+    #[OA\Post(
+        summary: 'Upload a motion-detected video file.',
+        requestBody: new OA\RequestBody(
+            description: 'File upload',
+            required: true,
+            content: new OA\MediaType(
+                mediaType: 'multipart/form-data',
+                schema: new OA\Schema(
+                    properties: [
+                        new OA\Property(property: 'file', type: 'string', format: 'binary'),
+                        new OA\Property(property: 'roi_triggered', type: 'boolean')
+                    ]
+                )
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Motion successfully uploaded'),
+            new OA\Response(response: 400, description: 'No file uploaded'),
+            new OA\Response(response: 500, description: 'File move failed')
+        ]
+    )]
     #[Route('/upload', name: 'api_video_upload', methods: ['POST'])]
     public function uploadVideo(Request $request, EntityManagerInterface $entity_manager, MessageBusInterface $bus, string $private_recordings_folder, int $max_disk_usage_size_gb): Response
     {
@@ -63,7 +86,17 @@ class VideoController extends AbstractController
         return $this->json(['message' => 'Motion successfully uploaded'], Response::HTTP_OK);
     }
 
-    #[Route('/stream/{filename}', name: 'stream_recording')]
+    #[OA\Get(
+        summary: 'Stream a video file.',
+        parameters: [
+            new OA\Parameter(name: 'filename', in: 'path', required: true, schema: new OA\Schema(type: 'string'))
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Video stream'),
+            new OA\Response(response: 404, description: 'File not found')
+        ]
+    )]
+    #[Route('/stream/{filename}', name: 'stream_recording', methods: ['GET'])]
     public function get_recording(
         string $filename,
         Request $request,
@@ -149,7 +182,13 @@ class VideoController extends AbstractController
         return $stream_response;
     }
 
-    #[Route('/stream-alt', name: 'video_stream_alt')]
+    #[OA\Get(
+        summary: 'Alternative video stream from a Raspberry Pi.',
+        responses: [
+            new OA\Response(response: 200, description: 'Streaming video')
+        ]
+    )]
+    #[Route('/stream-alt', name: 'video_stream_alt', methods: ['GET'])]
     public function streamAlt(HttpClientInterface $client, string $raspberry_base_url): Response
     {
         return new StreamedResponse(function () use ($client, $raspberry_base_url)
@@ -173,8 +212,25 @@ class VideoController extends AbstractController
         ]);
     }
 
-    // Debug route to check file accessibility
-    #[Route('/debug/{filename}', name: 'debug_recording')]
+    #[OA\Get(
+        summary: 'Debug file accessibility.',
+        parameters: [
+            new OA\Parameter(name: 'filename', in: 'path', required: true, schema: new OA\Schema(type: 'string'))
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'File info retrieved successfully', content: new OA\JsonContent(
+                properties: [
+                    new OA\Property(property: 'path', type: 'string'),
+                    new OA\Property(property: 'exists', type: 'boolean'),
+                    new OA\Property(property: 'readable', type: 'boolean'),
+                    new OA\Property(property: 'size', type: 'integer'),
+                    new OA\Property(property: 'mime_type', type: 'string')
+                ]
+            )),
+            new OA\Response(response: 404, description: 'File not found')
+        ]
+    )]
+    #[Route('/debug/{filename}', name: 'debug_recording', methods: ['GET'])]
     public function debugRecording(string $filename): Response
     {
         $filePath = sprintf('%s/public/recordings/%s', $this->getParameter('kernel.project_dir'), $filename);

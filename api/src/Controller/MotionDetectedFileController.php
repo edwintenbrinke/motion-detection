@@ -6,25 +6,33 @@ namespace App\Controller;
 
 use App\DTO\MotionDetectedFile\MotionDetectedFileCalendarOutputDTO;
 use App\DTO\MotionDetectedFile\MotionDetectedFileInputDTO;
-use App\DTO\MotionDetectedFile\MotionDetectedFileOutputDTO;
 use App\Entity\MotionDetectedFile;
 use App\Enum\MotionDetectedFileTypeEnum;
 use App\Repository\MotionDetectedFileRepository;
-use App\Service\PaginationService;
 use App\Trait\ValidationTrait;
 use Doctrine\ORM\EntityManagerInterface;
+use Nelmio\ApiDocBundle\Attribute\Model;
+use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 
+#[OA\Tag(name: 'Motion detected files')]
 #[Route('/api/motion-detected-file')]
 class MotionDetectedFileController extends AbstractController
 {
     use ValidationTrait;
 
+    #[OA\Post(
+        summary: 'Create a new motion detected file',
+        requestBody: new OA\RequestBody(content: new Model(type: MotionDetectedFileInputDTO::class)),
+        responses: [
+            new OA\Response(response: 201, description: 'Motion detection file created successfully'),
+            new OA\Response(response: 400, description: 'Validation failed')
+        ]
+    )]
     #[Route('/', name: 'api_motion_detected_file_post', methods: ['POST'])]
     public function createAction(Request $request, EntityManagerInterface $entity_manager): Response
     {
@@ -44,34 +52,17 @@ class MotionDetectedFileController extends AbstractController
         ]);
     }
 
-    #[Route('/table', name: 'api_motion_detected_file_get_table', methods: ['GET'])]
-    public function getTableAction(Request $request, MotionDetectedFileRepository $detected_file_repo, PaginationService $service): Response
-    {
-        $page = (int)$request->query->get('page', 1);
-        $items_per_page = (int)$request->query->get('itemsPerPage', 10);
-        $search = $request->query->get('search', '');
-
-        return $service->returnPaginatedSerializedResponse(
-            $detected_file_repo->returnPaginatedTable($page, $items_per_page),
-            MotionDetectedFileOutputDTO::class
-        );
-    }
-
-    #[Route('/calendar', name: 'api_motion_detected_file_get_calendar', methods: ['GET'])]
-    public function getCalendarAction(Request $request, MotionDetectedFileRepository $detected_file_repo): Response
-    {
-        $date = (string)$request->query->get('date');
-        if (!isset($date))
-        {
-            throw new BadRequestHttpException();
-        }
-
-        $data = $detected_file_repo->returnPaginatedCalendar(new \DateTime($date), new \DateTime($date));
-        return $this->json(
-            $this->serializeEntityArrayToDTOs($data, MotionDetectedFileCalendarOutputDTO::class)
-        );
-    }
-
+    #[OA\Get(
+        summary: 'Get hourly motion detected file counts for a specific date',
+        parameters: [
+            new OA\Parameter(name: 'date', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'date')),
+            new OA\Parameter(name: 'since', in: 'query', schema: new OA\Schema(type: 'string', format: 'date-time')),
+            new OA\Parameter(name: 'important', in: 'query', schema: new OA\Schema(type: 'boolean'))
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Hourly counts of motion detected files')
+        ]
+    )]
     #[Route('/calendar/{date}', name: 'api_motion_detected_file_get_calendar_day', methods: ['GET'])]
     public function getCalendarDayAction(Request $request, MotionDetectedFileRepository $detected_file_repo, string $date): Response
     {
@@ -100,6 +91,17 @@ class MotionDetectedFileController extends AbstractController
         return $this->json(array_values($hourly_counts));
     }
 
+    #[OA\Get(
+        summary: 'Get motion detected files for a specific date and hour',
+        parameters: [
+            new OA\Parameter(name: 'date', in: 'path', required: true, schema: new OA\Schema(type: 'string', format: 'date')),
+            new OA\Parameter(name: 'hour', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'important', in: 'query', schema: new OA\Schema(type: 'boolean'))
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Motion detected files for the given hour')
+        ]
+    )]
     #[Route('/calendar/{date}/{hour}', name: 'api_motion_detected_file_get_calendar_day_hour', methods: ['GET'])]
     public function getCalendarDayHourAction(Request $request, MotionDetectedFileRepository $detected_file_repo, string $date, int $hour): Response
     {
