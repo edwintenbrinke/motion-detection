@@ -64,16 +64,11 @@ class RefreshTokenAuthenticator extends AbstractAuthenticator
     public function onAuthenticationSuccess(Request $request, $token, string $firewallName): ?JsonResponse
     {
         $jwt = $this->jwtManager->create($token->getUser());
-
-        $response = new JsonResponse();
-        $event = new AuthenticationSuccessEvent(['token' => $jwt], $token->getUser(), $response);
-        $this->dispatcher->dispatch($event, Events::AUTHENTICATION_SUCCESS);
-        $response->setData($event->getData());
-        return $response;
+        return new JsonResponse(['token' => $jwt]);
     }
 
     public function onAuthenticationFailure(Request $request, AuthenticationException $exception): JsonResponse
     {
-        return new JsonResponse(['error' => $exception->getMessage()], JsonResponse::HTTP_UNAUTHORIZED);
+        return new JsonResponse(['message' => $exception->getMessage()], JsonResponse::HTTP_UNAUTHORIZED);
     }
 }

@@ -1,4 +1,4 @@
 gesdinet_jwt_refresh_token:
-    ttl: 2592000          # Refresh token time-to-live in seconds (e.g., 30 days)
+    ttl: 10 #2592000          # Refresh token time-to-live in seconds (e.g., 30 days)
     user_provider: app_user_provider  # Your user provider service
     refresh_token_entity: App\Entity\RefreshToken  # Entity class for refresh tokens

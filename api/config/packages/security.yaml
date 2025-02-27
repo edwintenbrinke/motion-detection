@@ -24,7 +24,7 @@ security:
                 failure_handler: lexik_jwt_authentication.handler.authentication_failure
 
         refresh:
-            pattern: ^/api/refresh
+            pattern: ^/api/token/refresh
             stateless: true
             custom_authenticators:
                 - App\Security\RefreshTokenAuthenticator

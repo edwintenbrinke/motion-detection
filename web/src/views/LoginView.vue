@@ -129,11 +129,11 @@ export default {
         });
 
         // Grab the token from the response
-        const token = response.data.token;
+        const { token, refresh_token } = response.data;
 
         // Save the token with expiry information
         const authStore = useAuthStore();
-        await authStore.saveAuthToken(token, 60); // 60 minutes expiry
+        await authStore.saveAuthToken(token, refresh_token, 60);
 
         // Set app as active and mark authentication state
         await authStore.setAppActive();
@@ -147,8 +147,6 @@ export default {
 
         // Call the Pinia store function
         await initStore.getInitializingInfo(true);
-
-        // Redirect to the calendar page
         this.$router.push('/calendar');
       } catch (error) {
         // Handle errors

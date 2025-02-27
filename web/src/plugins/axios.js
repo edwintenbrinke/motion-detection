@@ -5,100 +5,106 @@ import { useLoadingStore } from "@/stores/loading";
 import { useAuthStore } from "@/stores/authentication";
 import { Preferences } from '@capacitor/preferences';
 
-// Create an axios instance
 const apiClient = axios.create({
     baseURL: import.meta.env.VITE_API_BASE_URL,
     withCredentials: true,
 });
 
-let loadingStore = null;
+let isRefreshing = false;
+let refreshSubscribers = [];
+
+const addRefreshSubscriber = (callback) => {
+    refreshSubscribers.push(callback);
+};
+
+const notifyRefreshSubscribers = (token) => {
+    refreshSubscribers.forEach(cb => cb(token));
+    refreshSubscribers = [];
+};
 
 const axiosPlugin = {
     install: (app) => {
-        // Initialize the store after Pinia is installed
-        loadingStore = useLoadingStore();
+        const loadingStore = useLoadingStore();
+        const authStore = useAuthStore();
         const toast = app.config.globalProperties.$toast;
 
-        // Request interceptor
         apiClient.interceptors.request.use(
             async (config) => {
-                console.log('[Axios Request] Starting request:', JSON.stringify({
-                    url: import.meta.env.VITE_API_BASE_URL + config.url,
-                    method: config.method,
-                    headers: config.headers,
-                    data: config.data,
-                }));
-
-                // Dynamically set the Authorization header with the JWT token
                 const { value: token } = await Preferences.get({ key: 'authToken' });
                 if (token) {
-                    config.headers.Authorization = token;
+                    config.headers.Authorization = `Bearer ${token}`;
                 }
-
-                loadingStore?.startLoading(); // Use optional chaining
+                loadingStore?.startLoading();
                 return config;
             },
             (error) => {
-                console.error('[Axios Request] Request error:', JSON.stringify(error));
                 loadingStore?.stopLoading();
                 return Promise.reject(error);
             }
         );
 
-        // Response interceptor
         apiClient.interceptors.response.use(
             (response) => {
-                console.log('[Axios Response] Response received:', JSON.stringify({
-                    url: response.config.url,
-                    status: response.status,
-                    headers: response.headers,
-                    data: response.data,
-                }));
                 loadingStore?.stopLoading();
                 return response;
             },
             async (error) => {
                 loadingStore?.stopLoading();
+                const originalRequest = error.config;
 
-                if (error.response) {
-                    // Log detailed response error information
-                    console.error('[Axios Error] Response error:', JSON.stringify({
-                        url: error.response.config.url,
-                        status: error.response.status,
-                        headers: error.response.headers,
-                        data: error.response.data,
-                    }));
-
-                    if (error.response.status === 401) {
-                        try {
-                            console.warn('[Axios Error] 401 Unauthorized: Removing token and logging out');
-                            CookieHelper.deleteCookie('username');
-                            await useAuthStore().clearAuthData();
-                            await apiClient.post('/api/logout');
-                            toast.add({
-                                severity: 'error',
-                                summary: 'Unauthorized',
-                                detail: 'Session expired or unauthorized. You will be logged out.',
-                                life: 3000,
-                            });
-                        } catch (logoutError) {
-                            CookieHelper.deleteCookie('username');
-                            console.error('[Axios Error] Error during logout:', JSON.stringify(logoutError));
-                        }
-                        router.push('/');
-                    }
-                } else if (error.request) {
-                    console.error('[Axios Error] No response received:', JSON.stringify({
-                        url: error.config?.url,
-                        method: error.config?.method,
-                        headers: error.config?.headers,
-                        data: error.config?.data,
-                        request: error.request,
-                    }));
-                } else {
-                    console.error('[Axios Error] General error:', JSON.stringify({ message: error.message }));
+                if (!error.response) {
+                    console.error('[Axios Error] No response received:', error);
+                    return Promise.reject(error);
                 }
 
+                const { status, data } = error.response;
+
+                if (status === 401) {
+                    if (data?.message?.includes('Invalid or expired refresh token')) {
+                        await authStore.clearAuthData();
+                        await apiClient.post('/api/logout');
+
+                        toast.add({
+                            severity: 'error',
+                            summary: 'Session Expired',
+                            detail: 'Your session has expired. Please log in again.',
+                            life: 3000,
+                        });
+
+                        isRefreshing = false;
+                        await Preferences.clear();
+                        await router.push('/');
+                        return Promise.reject(error);
+                    }
+
+                    if (!originalRequest._retry) {
+                        originalRequest._retry = true;
+
+                        if (!isRefreshing) {
+                            isRefreshing = true;
+                            const { value: refreshToken } = await Preferences.get({ key: 'refreshToken' });
+                            if (!refreshToken) throw new Error('No refresh token available');
+
+                            const response = await apiClient.post('/api/token/refresh', { refresh_token: refreshToken });
+                            const newToken = response.data.token;
+                            await Preferences.set({ key: 'authToken', value: newToken });
+
+                            isRefreshing = false;
+                            notifyRefreshSubscribers(newToken);
+
+                            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+                            return apiClient(originalRequest);
+                        } else {
+                            console.log('redo OG')
+                            return new Promise((resolve) => {
+                                addRefreshSubscriber((token) => {
+                                    originalRequest.headers.Authorization = `Bearer ${token}`;
+                                    resolve(apiClient(originalRequest));
+                                });
+                            });
+                        }
+                    }
+                }
                 return Promise.reject(error);
             }
         );
@@ -107,6 +113,5 @@ const axiosPlugin = {
     },
 };
 
-// Export both the Axios instance and the plugin
 export default axiosPlugin;
 export { apiClient };

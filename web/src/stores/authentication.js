@@ -58,9 +58,10 @@ export const useAuthStore = defineStore('auth', {
             }
         },
 
-        async saveAuthToken(token, expiryInMinutes = 60) {
+        async saveAuthToken(token, refreshToken, expiryInMinutes = 60) {
             const expiryTime = Date.now() + expiryInMinutes * 60 * 1000;
             await Preferences.set({ key: 'authToken', value: token });
+            await Preferences.set({ key: 'refreshToken', value: refreshToken });
             await Preferences.set({ key: 'authTokenExpiry', value: expiryTime.toString() });
             await Preferences.set({ key: 'hasLoggedInWithCredentials', value: 'true' });
 
@@ -69,9 +70,11 @@ export const useAuthStore = defineStore('auth', {
             this.hasLoggedInWithCredentials = true;
         },
 
+
         async clearAuthData() {
             await Preferences.remove({ key: 'authToken' });
             await Preferences.remove({ key: 'authTokenExpiry' });
+            // await Preferences.remove({ key: 'refreshToken' });
             await Preferences.remove({ key: 'hasLoggedInWithCredentials' });
 
             this.authToken = null;
