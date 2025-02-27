@@ -1,8 +1,13 @@
 <template>
   <header class="header">
-    <button class="icon-button" @click="openLivestream">
-      <i class="fa-solid fa-camera"></i>
-    </button>
+    <span>
+      <button class="icon-button" @click="openLivestream">
+        <i class="fa-solid fa-camera"></i>
+      </button>
+      <button class="icon-button" style="margin-left:10px;" v-show="testButton" @click="openTest">
+        <i class="fa-solid fa-vial"></i>
+      </button>
+    </span>
     <h1 class="header-title icon-button" @click="openCalendar">Motion Detected</h1>
     <button class="icon-button" @click="openSettings">
       <i class="fas fa-cog"></i>
@@ -12,6 +17,11 @@
 
 <script>
 export default {
+  computed: {
+    testButton() {
+      return import.meta.env.VITE_TEST_BUTTON === 'true';
+    }
+  },
   methods: {
     openCalendar() {
       this.$router.push('/calendar');
@@ -21,6 +31,9 @@ export default {
     },
     openLivestream() {
       this.$router.push('/livestream');
+    },
+    openTest() {
+      this.$router.push('/test');
     },
   },
 };

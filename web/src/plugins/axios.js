@@ -2,6 +2,7 @@ import axios from 'axios';
 import router from '@/router';
 import CookieHelper from "@/utils/CookieHelper.js";
 import { useLoadingStore } from "@/stores/loading";
+import { useAuthStore } from "@/stores/authentication";
 import { Preferences } from '@capacitor/preferences';
 
 // Create an axios instance
@@ -22,7 +23,7 @@ const axiosPlugin = {
         apiClient.interceptors.request.use(
             async (config) => {
                 console.log('[Axios Request] Starting request:', JSON.stringify({
-                    url: config.url,
+                    url: import.meta.env.VITE_API_BASE_URL + config.url,
                     method: config.method,
                     headers: config.headers,
                     data: config.data,
@@ -72,7 +73,7 @@ const axiosPlugin = {
                         try {
                             console.warn('[Axios Error] 401 Unauthorized: Removing token and logging out');
                             CookieHelper.deleteCookie('username');
-                            await Preferences.remove({ key: 'authToken' }); // Remove the stored token
+                            await useAuthStore().clearAuthData();
                             await apiClient.post('/api/logout');
                             toast.add({
                                 severity: 'error',

@@ -2,7 +2,7 @@
   <form class="settings-form">
     <div class="form-row" style="margin-top: 24px">
       <div class="form-group">
-        <label>Motion pixel threshold</label>
+        <label>Motion threshold</label>
         <input
             type="number"
             v-model="settings.motion_threshold"
@@ -10,7 +10,7 @@
       </div>
 
       <div class="form-group">
-        <label>ROI Motion pixel threshold</label>
+        <label>ROI Motion threshold</label>
         <input
             type="number"
             v-model="settings.roi_motion_threshold"
@@ -67,10 +67,10 @@
 </template>
 
 <script>
-import {Preferences} from "@capacitor/preferences";
-import {useInitializeStore} from "@/stores/initialize.js";
-import {useVideoStore} from "@/stores/video.js";
+import {useInitializeStore} from "@/stores/initialize";
+import {useVideoStore} from "@/stores/video";
 import Toast from 'primevue/toast';
+import {useAuthStore} from "@/stores/authentication";
 
 export default {
   name: 'SettingsPage',
@@ -105,8 +105,8 @@ export default {
       }
     },
     async handleLogout() {
-      await this.$api.get('/api/logout')
-      await Preferences.remove({ key: 'authToken' });
+      await useAuthStore().clearAuthData();
+      await this.$api.post('/api/logout')
       this.$router.push('/');
       this.$toast.add({ severity: 'success', summary: 'Success', detail: 'Successfully logged out.', life: 2000 });
     },

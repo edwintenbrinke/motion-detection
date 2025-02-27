@@ -3,13 +3,13 @@ import { loadLayoutMiddleware } from "@/router/middleware/loadLayoutMiddleware.j
 import LoginView from "@/views/LoginView.vue";
 import CalendarView from "@/views/CalendarView.vue";
 import CalendarDayView from "@/views/CalendarDayView.vue";
-import CookieHelper from "@/utils/CookieHelper.js";
 import LivestreamView from "@/views/LivestreamView.vue";
 import SettingsView from "@/views/SettingsView.vue";
 import ImageRegionView from "@/views/ImageRegionView.vue";
 import { useInitializeStore } from '@/stores/initialize';
-import {Preferences} from "@capacitor/preferences";
-import TestView from "@/views/TestView.vue"; // Import the Pinia store
+import { useAuthStore } from '@/stores/authentication';
+import TestView from "@/views/TestView.vue";
+
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -83,25 +83,23 @@ const router = createRouter({
 router.beforeEach(async (to, from, next) => {
   await useInitializeStore()?.getInitializingInfo();
 
-  const { value: token } = await Preferences.get({ key: 'authToken' });
-
-  if (to.path === '/') {
-    if (token) {
-      // Redirect authenticated users to /calendar
-      return next({ path: '/calendar', replace: true });
-    } else {
-      return next(); // Allow unauthenticated users to stay on /
-    }
+  // Check if token is valid and biometric has been verified in this session
+  const tokenValid = await useAuthStore().isTokenValid();
+  const biometricVerified = await useAuthStore().isBiometricVerified();
+  const appActive = await useAuthStore().isAppActive();
+  console.log('statusss', tokenValid, biometricVerified, appActive)
+  // Always route to login page if app has been restarted or token is invalid
+  if (to.meta.requiresAuth && (!tokenValid || !biometricVerified || !appActive)) {
+    return next({ path: '/', replace: true });
   }
 
-  if (to.meta.requiresAuth && !token) {
-    // Redirect unauthenticated users trying to access protected routes
-    return next({ path: '/', replace: true });
+  // If going to login page but already verified, redirect to calendar
+  if (to.path === '/' && tokenValid && biometricVerified && appActive) {
+    return next({ path: '/calendar', replace: true });
   }
 
   next(); // Proceed as normal
 });
-
 
 // Execute the loadLayoutMiddleware before each route change
 router.beforeEach(loadLayoutMiddleware);

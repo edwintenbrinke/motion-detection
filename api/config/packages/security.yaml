@@ -23,6 +23,12 @@ security:
                 success_handler: App\Security\JwtCookieAuthenticationSuccessHandler
                 failure_handler: lexik_jwt_authentication.handler.authentication_failure
 
+        refresh:
+            pattern: ^/api/refresh
+            stateless: true
+            custom_authenticators:
+                - App\Security\RefreshTokenAuthenticator
+
         logout:
             pattern: ^/api/logout
             stateless: true
@@ -39,5 +45,6 @@ security:
     access_control:
         - { path: ^/api/doc, roles: PUBLIC_ACCESS }
         - { path: ^/api/login, roles: PUBLIC_ACCESS }
+        - { path: ^/api/refresh, roles: PUBLIC_ACCESS }
         - { path: ^/api/logout, roles: PUBLIC_ACCESS }
         - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }
