@@ -19,7 +19,7 @@ class APIClient:
             )
             response.raise_for_status()
             data = response.json()
-            self.token = f"Bearer {self.token}"
+            self.token = data['token']
             return True
         except Exception as e:
             print(f"Authentication failed: {str(e)}")
@@ -33,7 +33,7 @@ class APIClient:
 
         # Add authorization header
         headers = kwargs.get('headers', {})
-        headers['Authorization'] = self.token
+        headers['Authorization'] =  f"Bearer {self.token}"
         kwargs['headers'] = headers
 
         for attempt in range(Config.MAX_RETRY_ATTEMPTS):
@@ -44,7 +44,7 @@ class APIClient:
                     print("Token expired, reauthenticating...")
                     if self._authenticate():
                         # Update header with new token and retry
-                        kwargs['headers']['Authorization'] = self.token
+                        kwargs['headers']['Authorization'] = f"Bearer {self.token}"
                         continue
                 
                 response.raise_for_status()
