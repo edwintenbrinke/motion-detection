@@ -33,7 +33,7 @@ class APIClient:
 
         # Add authorization header
         headers = kwargs.get('headers', {})
-        headers['Authorization'] = self.token
+        headers['Authorization'] = f"Bearer {self.token}"
         kwargs['headers'] = headers
 
         for attempt in range(Config.MAX_RETRY_ATTEMPTS):

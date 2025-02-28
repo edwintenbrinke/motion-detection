@@ -3,10 +3,12 @@ Save &amp; Display video feed based on motion detection
 
 
 ### TODO List
-fingerprint auth on app (https://claude.ai/chat/7d04052c-77b0-4388-9661-dbe98149e49d)\
 php tests?\
 disk usage/server specs page?\
-responses of the APIs are not satisfactory & update api docs
+responses of the APIs are not satisfactory & update api docs\
+mobile icon & name\
+minimized for X time = auth again aswell\
+better web logout function
 
 ##
 BUG
