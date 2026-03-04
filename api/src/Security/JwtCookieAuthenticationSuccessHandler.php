@@ -35,7 +35,7 @@ class JwtCookieAuthenticationSuccessHandler implements AuthenticationSuccessHand
         $jwt = $this->jwt_manager->create($user);
 
         // Create the HTTP-only cookie for JWT
-        $jwtCookie = Cookie::create(
+        $jwt_cookie = Cookie::create(
             self::AUTH_COOKIE,
             $jwt,
             time() + 3600, // 1 hour expiration
@@ -47,20 +47,7 @@ class JwtCookieAuthenticationSuccessHandler implements AuthenticationSuccessHand
             Cookie::SAMESITE_NONE // CSRF protection
         );
 
-        // Create non-HTTP-only cookie for username
-        $usernameCookie = Cookie::create(
-            self::USERNAME_COOKIE,
-            $user->getUserIdentifier(),
-            time() + 3600,
-            '/',
-            null,
-            true,
-            false,  // Not HTTP only
-            false,
-            Cookie::SAMESITE_NONE
-        );
-
-        $response = new JWTAuthenticationSuccessResponse($jwt, [], [$jwtCookie]);
+        $response = new JWTAuthenticationSuccessResponse($jwt, [], [$jwt_cookie]);
 
         $event = new AuthenticationSuccessEvent(['token' => $jwt], $user, $response);
         $this->dispatcher->dispatch($event, Events::AUTHENTICATION_SUCCESS);

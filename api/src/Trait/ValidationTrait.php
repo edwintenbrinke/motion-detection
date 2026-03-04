@@ -40,7 +40,6 @@ trait ValidationTrait
     {
         try
         {
-            // Deserialize the request content into the given class
             $entity = $this->serializer->deserialize(
                 $request->getContent(),
                 $class,
@@ -49,7 +48,6 @@ trait ValidationTrait
         }
         catch (NotNormalizableValueException $exception)
         {
-            // Handle specific deserialization errors (e.g., type mismatch)
             return new JsonResponse([
                 'status'  => 'error',
                 'message' => 'Invalid value for a field.',
@@ -62,7 +60,6 @@ trait ValidationTrait
         }
         catch (\Exception $exception)
         {
-            // Handle general JSON syntax errors
             return new JsonResponse([
                 'status'  => 'error',
                 'message' => 'Syntax error. JSON couldn\'t be decoded.',
