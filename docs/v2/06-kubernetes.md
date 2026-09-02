@@ -191,9 +191,13 @@ device plugin is running, or the pod sits `Pending` forever with a message nobod
 
 WebRTC will not traverse the Cloudflare Tunnel's HTTP-only path
 ([adr/0004](adr/0004-tailscale-for-remote.md)). Expose go2rtc's port 8555 (TCP **and** UDP)
-as a `LoadBalancer` service on the LAN (`envoy-internal`) for local WebRTC; do not attempt
-to route it through the tunnel. Remote clients use the MSE port (1984, plain HTTP) through
-the tunnel instead — that path already exists on the same go2rtc service.
+as its own `LoadBalancer` Service, given a dedicated LAN IP by Cilium — the same pattern
+Plex uses for its own `type: LoadBalancer` service, not an `envoy-internal` HTTPRoute (this
+cluster never got split-DNS working; see the homelab roadmap's phase B). The app connects
+to that LAN IP directly for WebRTC and falls back to MSE through the tunnel when it is not
+reachable — i.e. whenever the phone is not on the LAN. Remote clients use the MSE port
+(1984, plain HTTP) through the tunnel instead — that path rides the same HTTPRoute as the
+rest of the API, below.
 
 ## Mosquitto
 
@@ -221,15 +225,23 @@ as Space Crucible ([ADR 0005](../../../homelab-cluster/docs/adr/0005-tag-and-ver
 
 ## Networking
 
+One HTTPRoute, on `envoy-external`, for `motion.edwintenbrinke.nl` — the same pattern as
+`plex.` and `files.`. This cluster never got split-DNS working (accepted as "trombone" in
+the homelab roadmap's phase B), so a LAN client reaches this hostname the same way a remote
+one does: through Cloudflare and back. There is no `envoy-internal` route for this app.
+
 | Consumer | Path |
 |---|---|
-| LAN browser / app | HTTPRoute on `envoy-internal` (`.250`) → `motion.edwintenbrinke.nl`; WebRTC connects directly to the LoadBalancer above |
-| Phone, remote | Cloudflare Tunnel → `envoy-external` → `motion-api` and `frigate` (MSE/HLS, no WebRTC) |
+| Any client, HTTP (API, MSE/HLS live, clip playback) | Cloudflare Tunnel → `envoy-external` → `motion-api` / `motion-web` / `frigate` |
+| LAN client, WebRTC only | Directly to the go2rtc `LoadBalancer` Service's LAN IP — no gateway, no tunnel |
 | Pi → cluster | Nothing. The cluster dials **out** to the Pi's RTSP |
 
-Both routes point at the same hostname; Cloudflare DNS resolves it, and which gateway
-answers depends on whether the client is on the LAN. Reasoning for reusing the tunnel rather
-than a VPN: [adr/0004-tailscale-for-remote.md](adr/0004-tailscale-for-remote.md).
+WebRTC is the one exception to "everything is one hostname": it cannot ride an HTTPRoute at
+all (no Gateway API support for arbitrary UDP), so it gets its own `LoadBalancer` Service and
+a LAN IP, exactly like Plex's `type: LoadBalancer` service today. The app tries that IP first
+and falls back to the MSE path over the regular hostname when it's unreachable — which is
+also what "off the LAN" looks like from the app's point of view. Reasoning for reusing the
+tunnel rather than a VPN: [adr/0004-tailscale-for-remote.md](adr/0004-tailscale-for-remote.md).
 
 ## Resource sizing
 
