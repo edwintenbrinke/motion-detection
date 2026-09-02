@@ -1,0 +1,25 @@
+[Unit]
+Description=MediaMTX (camera → RTSP)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/mediamtx /etc/mediamtx.yml
+Restart=always
+RestartSec=5
+# The encoder is the only real workload on this box now; do not let anything else on the
+# Pi outrank it under load.
+Nice=-5
+
+# Runs as root: libcamera needs access to /dev/video*, /dev/media* and the VideoCore
+# firmware interface, and on stock Raspberry Pi OS that is simplest as root rather than
+# chasing group/ACL permissions on every device node. If you want to run this unprivileged,
+# add the service's user to the `video` group first and test camera access still works
+# before removing root — a silent permission failure here looks identical to "no camera".
+NoNewPrivileges=yes
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

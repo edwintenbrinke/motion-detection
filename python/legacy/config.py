@@ -1,5 +1,8 @@
+import os
+
+
 class Config:
-    BASE_URL = "https://api.edwintenbrinke.nl"
+    BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:7100")
     LOGIN_ENDPOINT = "/api/login"
     UPLOAD_ENDPOINT = "/api/video/upload"
     SETTINGS_ENDPOINT = "/api/user/settings"

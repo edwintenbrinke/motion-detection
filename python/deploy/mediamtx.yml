@@ -1,0 +1,45 @@
+# MediaMTX config for the Pi camera. See ../../docs/v2/08-pi-agent.md for the reasoning
+# behind every value here — in short: one H.264 stream, encoded once, on a Pi 5 that has
+# no hardware encoder, published as RTSP for Frigate to pick up.
+#
+# Reference: https://github.com/bluenviron/mediamtx
+
+logLevel: info
+logDestinations: [stdout]
+
+# Only RTSP is needed — Frigate connects over RTSP. HLS/WebRTC stay off here; they exist
+# in MediaMTX for ad-hoc debugging (flip hls: yes temporarily to view from a browser) but
+# are not part of the production path. The RTSP port must never leave the LAN.
+rtspAddress: :8554
+rtsp: yes
+rtmp: no
+hls: no
+webrtc: no
+srt: no
+
+paths:
+  cam:
+    source: rpiCamera
+
+    rpiCameraWidth: 1920
+    rpiCameraHeight: 1080
+    rpiCameraFPS: 25
+
+    # 3 Mbit/s: see docs/v2/02-video-transport.md#numbers-first for why this beats the
+    # ~15 Mbit/s the old MJPEG live view used, for a *better* picture.
+    rpiCameraBitrate: 3000000
+
+    # One second (25 frames @ 25fps). Frigate cuts recording segments and seeks on
+    # keyframes; a longer GOP means a scrubber that jumps and clip boundaries that drift.
+    rpiCameraIDRPeriod: 25
+
+    # The camera is mounted upside down. Do this here, once, instead of an ffmpeg
+    # transcode pass on every recording (which is what the v1 API did).
+    rpiCameraVFlip: true
+    rpiCameraHFlip: false
+
+    rpiCameraAWB: auto
+    # Denoise costs CPU and blurs small moving objects, which is exactly what the
+    # detector needs to see. Leave it off; revisit only once an IR illuminator is added
+    # for night detection and noise becomes the bigger problem.
+    rpiCameraDenoise: cdn_off

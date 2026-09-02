@@ -22,7 +22,7 @@ irreversible thing":
 
 | # | What | Why it waits for you |
 |---|---|---|
-| 5 | ⬜ Stopping the Pi's current `main.py` agent and starting MediaMTX | Takes the *only* running camera view offline for however long the cutover takes. I'll have the MediaMTX config, systemd unit and install script ready to run in one command — you (or I, with your go-ahead) run it |
+| 5 | 🔶 Start MediaMTX on the Pi | `python/deploy/install.sh` is ready — installs and enables the service but does not start it. Nothing is currently running on the Pi (confirmed by you), so there's no conflicting process to stop this time; still flagging it since it's the first thing that actually runs on real hardware. Run it with `ssh rpi` + `./install.sh`, or tell me to go ahead |
 | 6 | ⬜ Pushing `kubernetes/apps/motion/*` to `homelab-cluster` main | Flux auto-applies on push. I'll build it on a branch and open it for your review first — not merge it myself |
 | 7 | ⬜ GPU node re-provisioning (Phase 3) | Takes down `space-crucible-prod`. Explicitly scheduled as its own maintenance window in the roadmap, not attempted here regardless of time available |
 | 8 | ⬜ Creating the `motion.edwintenbrinke.nl` DNS/HTTPRoute | Cheap and safe, but it's the first real "this is now reachable" step — flagging it rather than silently making something newly reachable while you're asleep |
@@ -31,12 +31,16 @@ irreversible thing":
 
 Everything that's pure repo work with no real-world side effect until someone applies it:
 
-- Pi-side: MediaMTX config, systemd unit, install script, README (files only — not run)
-- `homelab-cluster`: the `kubernetes/apps/motion/` manifests, on a branch, not pushed
-- API: `Event`/`Device`/`NotificationRule` entities + migrations, the new endpoints, the
+- ✅ Pi-side: MediaMTX config, systemd unit, install script, README (files only — not run
+  on the actual Pi; that is item 5 above)
+- ✅ Legacy Python agent moved to `python/legacy/`, Dockerfile/compose updated to match
+- ✅ `event-bridge`: MQTT→HTTP service with buffering/replay, unit-tested (7/7 passing,
+  no MQTT broker or live API needed — see `python/bridge/README.md`), fixtures for manual
+  testing once Frigate exists
+- ⬜ `homelab-cluster`: the `kubernetes/apps/motion/` manifests, on a branch, not pushed
+- ⬜ API: `Event`/`Device`/`NotificationRule` entities + migrations, the new endpoints, the
   media-URL signer — as code, against a local/dev DB, not touching anything live
-- `event-bridge`: the MQTT→HTTP service, with fixtures, testable standalone
-- App: the API-client abstraction layer + events feed scaffolding, buildable but not shipped
+- ⬜ App: the API-client abstraction layer + events feed scaffolding, buildable but not shipped
 
 I'll commit each piece as it's done so nothing is lost if the session ends mid-task, and
 update this file's status column as I go.

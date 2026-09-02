@@ -1,0 +1,18 @@
+{
+  "type": "end",
+  "after": {
+    "id": "1738823400.445566-defabc",
+    "camera": "voordeur",
+    "severity": "alert",
+    "start_time": 1738823400.0,
+    "end_time": 1738823408.0,
+    "top_score": 0.76,
+    "has_clip": true,
+    "has_snapshot": true,
+    "data": {
+      "objects": ["person"],
+      "sub_labels": ["onbekend"],
+      "zones": ["pad"]
+    }
+  }
+}

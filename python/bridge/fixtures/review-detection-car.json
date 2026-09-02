@@ -1,0 +1,18 @@
+{
+  "type": "end",
+  "after": {
+    "id": "1738800100.223344-bcdefa",
+    "camera": "voordeur",
+    "severity": "detection",
+    "start_time": 1738800100.0,
+    "end_time": 1738800104.0,
+    "top_score": 0.81,
+    "has_clip": true,
+    "has_snapshot": true,
+    "data": {
+      "objects": ["car"],
+      "sub_labels": [],
+      "zones": ["straat"]
+    }
+  }
+}

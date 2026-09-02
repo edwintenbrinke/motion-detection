@@ -10,11 +10,16 @@ services:
       - ./python/recordings:/var/www/python/recordings
       - ./docker/php/php.ini:/usr/local/etc/php/php.ini
     environment:
-      - APP_ENV=dev
-      - COMPOSER_ALLOW_SUPERUSER=1
+      APP_ENV: dev
+      COMPOSER_ALLOW_SUPERUSER: "1"
+      LOAD_FIXTURES: "1"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
     networks:
       - symfony_network
 
@@ -29,35 +34,41 @@ services:
       - ./python/recordings:/var/www/python/recordings
       - ./docker/php/php.ini:/usr/local/etc/php/php.ini
     environment:
-      - APP_ENV=dev
-      - COMPOSER_ALLOW_SUPERUSER=1
+      APP_ENV: dev
+      COMPOSER_ALLOW_SUPERUSER: "1"
+      SKIP_SETUP: "1"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      app:
+        condition: service_started
     networks:
       - symfony_network
     command: >
-      sh -c "while true; do 
-        php /var/www/symfony/bin/console messenger:consume async --time-limit=300 --memory-limit=200M;
-        sleep 300;
-      done"
+      sh -c "while [ ! -f /var/www/symfony/vendor/autoload.php ]; do sleep 2; done;
+        while true; do
+          php /var/www/symfony/bin/console messenger:consume async --time-limit=300 --memory-limit=200M || true;
+          sleep 5;
+        done"
 
   nginx:
-    image: nginx:latest
+    image: nginx:1.28-alpine
     container_name: symfony_nginx
     ports:
-      - "7000:80"  # Only expose HTTP port, remove HTTPS
+      - "7100:80"
     volumes:
       - ./api:/var/www/symfony
       - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf
-      - ./docker/nginx/conf.d:/etc/nginx/conf.d  # Include conf.d directory
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d
     depends_on:
       - app
     networks:
       - symfony_network
 
   db:
-    image: mysql:8.0
+    image: mysql:8.4
     container_name: symfony_db
     environment:
       MYSQL_ROOT_PASSWORD: root
@@ -67,12 +78,18 @@ services:
     ports:
       - "7001:3306"
     volumes:
-      - db_data:/var/lib/mysql
+      - db_data_84:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-usymfony", "-psymfony"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
     networks:
       - symfony_network
 
   redis:
-    image: redis:alpine
+    image: redis:7-alpine
     container_name: symfony_redis
     ports:
       - "7002:6379"
@@ -80,14 +97,19 @@ services:
       - symfony_network
 
   python_script:
+    # Legacy agent (v1). Kept only for reference/rollback while v2 (MediaMTX + Frigate,
+    # see docs/v2/) is being built out. See python/legacy/ and docs/v2/08-pi-agent.md.
     build:
       context: ./python
       dockerfile: Dockerfile
     container_name: python_script
-    working_dir: /app
+    working_dir: /app/legacy
+    profiles: ["raspberry"]
+    environment:
+      API_BASE_URL: http://nginx
     volumes:
       - ./python:/app
-      - ./python/recordings:/app/recordings  # Mount the recordings folder directly
+      - ./python/recordings:/app/recordings
     logging:
       driver: "json-file"
       options:
@@ -95,6 +117,7 @@ services:
         max-file: "3"
     networks:
       - symfony_network
+    command: python main.py
 
   vue:
     build:
@@ -104,15 +127,18 @@ services:
     working_dir: /app
     volumes:
       - ./web:/app
-      - /app/node_modules
+      - vue_node_modules:/app/node_modules
     ports:
       - "7003:3000"
+    environment:
+      NODE_ENV: development
     networks:
       - symfony_network
-    command: npm run dev -- --host 0.0.0.0
+    command: sh -c "npm install && npm run dev"
 
 volumes:
-  db_data:
+  db_data_84:
+  vue_node_modules:
 
 networks:
   symfony_network:

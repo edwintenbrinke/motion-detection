@@ -1,0 +1,18 @@
+{
+  "type": "end",
+  "after": {
+    "id": "1738800200.334455-cdefab",
+    "camera": "voordeur",
+    "severity": "alert",
+    "start_time": 1738800200.0,
+    "end_time": 1738800230.0,
+    "top_score": 0.93,
+    "has_clip": true,
+    "has_snapshot": true,
+    "data": {
+      "objects": ["person"],
+      "sub_labels": ["bezorger"],
+      "zones": ["pad"]
+    }
+  }
+}
