@@ -16,6 +16,10 @@ services:
             string $private_recordings_folder: '%env(resolve:PRIVATE_UNPROCESSED_RECORDINGS_FOLDER)%'
             int $max_disk_usage_size_gb: '%env(int:MAX_DISK_SIZE_USAGE_GB)%'
             string $raspberry_base_url: '%env(resolve:RASPBERRY_BASE_URL)%'
+            # event-bridge auth (InternalEventController) -- see docs/v2/07-api-and-data-model.md#internal
+            string $bridge_secret: '%env(resolve:BRIDGE_SECRET)%'
+            # MediaTokenService -- see docs/v2/07-api-and-data-model.md#media-tokens
+            string $signing_key: '%env(resolve:MEDIA_SIGNING_KEY)%'
 
             # Automatically inject the conversion logger into any service requiring it
 #            LoggerInterface $conversion_logger: '@monolog.logger.conversion_logger'  # Bind conversion_logger

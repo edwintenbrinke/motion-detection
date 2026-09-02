@@ -45,6 +45,12 @@ security:
     access_control:
         - { path: ^/api/doc, roles: PUBLIC_ACCESS }
         - { path: ^/api/login, roles: PUBLIC_ACCESS }
-        - { path: ^/api/refresh, roles: PUBLIC_ACCESS }
+        - { path: ^/api/token/refresh, roles: PUBLIC_ACCESS }
         - { path: ^/api/logout, roles: PUBLIC_ACCESS }
+        # event-bridge has no user session and sends no JWT -- it authenticates with the
+        # X-Bridge-Secret header instead, checked inside InternalEventController itself.
+        # PUBLIC_ACCESS here only means "the firewall doesn't require a JWT"; it is NOT
+        # equivalent to unauthenticated -- do not add another route under this prefix
+        # without the same explicit secret check. See docs/v2/07-api-and-data-model.md#internal.
+        - { path: ^/api/internal, roles: PUBLIC_ACCESS }
         - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }
