@@ -43,9 +43,26 @@ Everything that's pure repo work with no real-world side effect until someone ap
   CPU-only (no GPU dependency), config seeds onto the PVC via initContainer per ADR 0005.
   motion-api/motion-web are explicit drafts — no image exists for them yet, that's the
   next item below.
-- ⬜ API: `Event`/`Device`/`NotificationRule` entities + migrations, the new endpoints, the
-  media-URL signer — as code, against a local/dev DB, not touching anything live
+- ✅ API: `Event`/`Device`/`NotificationRule` entities + migration, verified **end-to-end**
+  against the real dev stack (not just linted) — migration applies and rolls back cleanly,
+  DI container compiles, and a full HTTP round-trip works: bridge ingest with the shared
+  secret (upserts correctly on redelivery), the app-facing feed/detail/unread-count/seen/
+  feedback endpoints, and device register/unregister with token-refresh upsert and
+  ownership checks. `MediaTokenService` (the media-URL signer) is written and verified via
+  `api/bin/verify-media-token.php` — PHPUnit isn't set up in this project and adding it
+  tonight hit a real dependency conflict (see below), so this is a standalone check instead
+  of a proper test suite. `NotificationRule` is data-model-only — no matching-engine
+  service or endpoints yet, that's still open.
 - ⬜ App: the API-client abstraction layer + events feed scaffolding, buildable but not shipped
+
+## A decision I did not make for you
+
+**Adding PHPUnit to `api/` hit a real dependency conflict** (`phpunit/phpunit` wants
+`sebastian/diff ^6`, the pinned `phpstan`/`php-cs-fixer` versions want it fixed to `9.0.1`;
+resolving needs `-W`, i.e. letting composer upgrade/downgrade across the existing
+dev-tooling graph). Composer reverted cleanly, nothing is broken, but I didn't force it
+through unattended. If you want real PHPUnit in this project, that's a `composer update -W`
+you should run and review yourself — I left `api/bin/verify-media-token.php` as a stand-in.
 
 I'll commit each piece as it's done so nothing is lost if the session ends mid-task, and
 update this file's status column as I go.
