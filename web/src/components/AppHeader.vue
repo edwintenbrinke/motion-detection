@@ -7,6 +7,12 @@
       <button class="icon-button" style="margin-left:10px;" v-show="testButton" @click="openTest">
         <i class="fa-solid fa-vial"></i>
       </button>
+      <!-- Scaffolding for docs/v2/05-android-app.md, gated the same way as the test
+           button -- not shipped as the default nav until motion-api's v2 endpoints
+           are deployed anywhere but a local dev stack. See docs/v2/HANDOFF.md. -->
+      <button class="icon-button" style="margin-left:10px;" v-show="testButton" @click="openEvents">
+        <i class="fa-solid fa-bell"></i>
+      </button>
     </span>
     <h1 class="header-title icon-button" @click="openCalendar">Motion Detected</h1>
     <button class="icon-button" @click="openSettings">
@@ -34,6 +40,9 @@ export default {
     },
     openTest() {
       this.$router.push('/test');
+    },
+    openEvents() {
+      this.$router.push('/events');
     },
   },
 };

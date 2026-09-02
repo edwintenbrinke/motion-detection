@@ -6,6 +6,7 @@ import CalendarDayView from "@/views/CalendarDayView.vue";
 import LivestreamView from "@/views/LivestreamView.vue";
 import SettingsView from "@/views/SettingsView.vue";
 import ImageRegionView from "@/views/ImageRegionView.vue";
+import EventsView from "@/views/EventsView.vue";
 import { useInitializeStore } from '@/stores/initialize';
 import { useAuthStore } from '@/stores/authentication';
 import TestView from "@/views/TestView.vue";
@@ -30,6 +31,19 @@ const router = createRouter({
       meta: {
         layout: 'CalendarLayout',
         requiresAuth: false,
+      },
+    },
+    {
+      // Scaffolding for docs/v2/05-android-app.md's "events-first" redesign -- not the
+      // default landing yet (that stays /calendar until motion-api's v2 endpoints are
+      // actually deployed somewhere other than a local dev stack). Reachable directly
+      // for testing.
+      path: '/events',
+      name: 'events',
+      component: EventsView,
+      meta: {
+        layout: 'CalendarLayout',
+        requiresAuth: true,
       },
     },
     {
