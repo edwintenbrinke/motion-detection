@@ -37,7 +37,12 @@ Everything that's pure repo work with no real-world side effect until someone ap
 - ✅ `event-bridge`: MQTT→HTTP service with buffering/replay, unit-tested (7/7 passing,
   no MQTT broker or live API needed — see `python/bridge/README.md`), fixtures for manual
   testing once Frigate exists
-- ⬜ `homelab-cluster`: the `kubernetes/apps/motion/` manifests, on a branch, not pushed
+- ✅ `homelab-cluster`: the `kubernetes/apps/motion/` manifests, on branch
+  `motion-namespace-skeleton` (not merged to main, not pushed — Flux only applies main).
+  All 7 sub-kustomizations validated with `kubectl kustomize` (builds clean). Frigate is
+  CPU-only (no GPU dependency), config seeds onto the PVC via initContainer per ADR 0005.
+  motion-api/motion-web are explicit drafts — no image exists for them yet, that's the
+  next item below.
 - ⬜ API: `Event`/`Device`/`NotificationRule` entities + migrations, the new endpoints, the
   media-URL signer — as code, against a local/dev DB, not touching anything live
 - ⬜ App: the API-client abstraction layer + events feed scaffolding, buildable but not shipped
