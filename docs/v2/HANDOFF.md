@@ -51,9 +51,19 @@ Everything that's pure repo work with no real-world side effect until someone ap
   ownership checks. `MediaTokenService` (the media-URL signer) is written and verified via
   `api/bin/verify-media-token.php` — PHPUnit isn't set up in this project and adding it
   tonight hit a real dependency conflict (see below), so this is a standalone check instead
-  of a proper test suite. `NotificationRule` is data-model-only — no matching-engine
-  service or endpoints yet, that's still open.
-- ⬜ App: the API-client abstraction layer + events feed scaffolding, buildable but not shipped
+  of a proper test suite. `NotificationRuleMatcher` (the matching engine — first
+  matching enabled rule wins, silent by default) is now written too, verified against
+  the exact worked example in docs/v2/04-notifications.md via
+  `api/bin/verify-notification-matcher.php` (12 checks, including the midnight-wrap
+  time window). **Not yet wired into anything** — nothing calls it from the ingest
+  path, and there's no endpoint to manage rules from the app yet.
+- ✅ App: API-client layer (`src/api/eventsApi.js`, `devicesApi.js`), the events store
+  (`src/stores/events.js`, cursor-paginated, not persisted), `EventCard.vue` +
+  `EventsView.vue`, wired to `/events` behind the same `VITE_TEST_BUTTON` gate as the
+  existing `/test` route. Verified with a real `npm run build` (clean, no new
+  warnings) and the dev server (transforms without error) — not just written and
+  assumed. Not built: the event detail view (player, feedback button) and real
+  thumbnails, which need `MediaTokenService` exposed by an endpoint first.
 
 ## A decision I did not make for you
 
