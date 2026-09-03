@@ -1,0 +1,161 @@
+# The app, deployed
+
+`https://motion.edwintenbrinke.nl`. One app, one hostname, no acceptance/production split
+— the game has that because it has players; this has one user.
+
+## Shape
+
+```
+phone / browser
+      │  https://motion.edwintenbrinke.nl
+      ▼
+Cloudflare Tunnel ──► envoy-external ──┬── /            ──► motion-web   (the built SPA on nginx)
+                                       └── /api, /live  ──► motion-api   (Symfony + nginx)
+                                                                 │
+                                                                 ├─ MySQL          (its own pod, NVMe)
+                                                                 └─ Frigate        (cluster-internal only)
+LAN only:  app ──► 192.168.1.248:1984  ──► go2rtc WebRTC
+```
+
+No new tunnel entry, certificate or DNS record was needed. The tunnel already carries
+`*.edwintenbrinke.nl`, and external-dns writes the record from the HTTPRoute itself.
+
+## "Media is only reachable from the application"
+
+This is a property of the deployment, not a promise in a comment:
+
+- **Frigate has no HTTPRoute and no tunnel entry.** Its only addresses are a cluster-internal
+  Service and a LAN LoadBalancer. There is no hostname that reaches it from the internet.
+- **The HTTPRoute has exactly two backends**, motion-api and motion-web. An earlier draft of
+  it routed `/live` straight to `frigate:1984`; that would have made every live stream
+  world-readable to anyone who guessed the path.
+- Every clip, thumbnail, snapshot and live frame is fetched by nginx *inside the motion-api
+  pod*, after PHP has said yes.
+
+Verified from outside: `motion.edwintenbrinke.nl/api/config`,
+`/api/voordeur/latest.jpg` and `/api/events/<id>/clip.mp4` — Frigate's own API paths — all
+404, because they hit Symfony's router, which has no such routes.
+
+### Two credentials, because one cannot cover both cases
+
+| Consumer | Credential | Why |
+|---|---|---|
+| The app's own API calls | JWT cookie | Ordinary session; the app can set headers |
+| `<img>`, `<video>`, notification images | **Signed URL** (HMAC, 10 min) | None of these can send an `Authorization` header |
+| Live view (`/live/…`) | Either | The WebSocket cannot send a header; the HLS *segments* cannot carry a signature |
+
+The signed URLs are minted inline on every event (`media.thumbnail|snapshot|clip`, one
+`expires_at` for all three, so the app refreshes the set rather than a trickle).
+
+The live view accepts a session cookie **as well as** a signature, and it has to: go2rtc's
+HLS playlist points at its segments with relative URLs, so every follow-up request the
+player makes arrives without the `exp`/`sig` that fetched the playlist. Signing the playlist
+body would mean rewriting HLS in flight. A live session is the stronger credential anyway;
+the signature exists for the consumers that cannot hold a cookie at all.
+
+### PHP decides, nginx moves
+
+`MediaController` verifies the signature and returns an empty response carrying
+`X-Accel-Redirect: /_frigate/…`. nginx then fetches the bytes from Frigate over the cluster
+network. A clip never enters a PHP worker.
+
+`/_frigate/` is an `internal` location, so it is not routable from outside — the only way in
+is through a controller that checked a signature first.
+
+> **Measured caveat.** Frigate answers **200** to a ranged GET on
+> `/api/events/<id>/clip.mp4`, so seeking inside an event clip re-downloads it. nginx
+> forwards `Range` and buffers nothing; the limit is upstream. Event clips are a megabyte or
+> two, so it costs nothing today. Scrubbing a whole recording is a different endpoint
+> (`/vod/`, HLS) and a feature that does not exist yet — HANDOFF H4.
+
+## What the app actually gets today
+
+Verified end to end over the public hostname, logged in as a real user:
+
+| | |
+|---|---|
+| Login → JWT cookie | ✅ |
+| `/api/user/initialize` | ✅ |
+| `/api/cameras` | ✅ reads Frigate's live config: `voordeur`, 1920×1080, retention 3/30/7 |
+| `/api/events` | ✅ with inline signed media on every row |
+| Signed thumbnail / snapshot | ✅ real JPEGs, 191×175 and 1920×1080, **with no session cookie at all** |
+| Signed clip | ✅ `video/mp4`, 1.1 MB |
+| Tampered / expired / missing signature | ✅ 403 |
+| Live: **MSE over WebSocket** | ✅ `101 Switching Protocols` through the tunnel |
+| Live: LL-HLS master + variant playlist | ✅ |
+| Live: single frame | ✅ 1920×1080 JPEG |
+| Live without either credential | ✅ 403 |
+| WebRTC rung | offered LAN-only, as designed — it cannot traverse the tunnel |
+
+## The event feed is filled by polling, for now
+
+Nothing yet copies Frigate's events into the app's database — that is Phase 6's MQTT bridge.
+The difference between "the app works" and "the app looks broken" should not be a whole
+message broker, so `app:frigate:sync-events` polls Frigate's events API every minute
+(a CronJob) and upserts on Frigate's own id.
+
+It is idempotent, so a run after an outage backfills rather than duplicates. When the
+bridge lands it takes over the live path and this stays useful as a **reconciler**: MQTT
+drops messages when nobody is listening, and a system that can only learn about events in
+real time can never catch up.
+
+## Running it
+
+Images are built on `edwin-server` (amd64, native — the Mac is arm64) and pushed to GHCR
+under the same account and pull secret the game uses.
+
+```bash
+rsync -az --exclude .git --exclude node_modules --exclude vendor ./ 192.168.1.253:~/build/motion-detection/
+```
+
+```bash
+ssh 192.168.1.253 'cd ~/build/motion-detection && docker build -f api/Dockerfile.prod -t ghcr.io/edwintenbrinke/motion-api:vX.Y.Z . && docker push ghcr.io/edwintenbrinke/motion-api:vX.Y.Z'
+```
+
+Then bump the tag in `homelab-cluster/kubernetes/apps/motion/motion-api/app/helmrelease.yaml`
+and push; Flux does the rest. There is no CI for this yet — that is a deliberate gap, not an
+oversight: one app, one user, and a pipeline is worth building when the deploys become
+boring.
+
+### Creating the login
+
+```bash
+kubectl exec -n motion deploy/motion-api -- env MOTION_USER_PASSWORD='…' php bin/console app:user:create --username edwin
+```
+
+Non-interactive on purpose: `kubectl exec` has no TTY, and `askHidden()` simply fails there.
+The command also creates the `Settings` row, without which `/api/user/initialize` 404s and
+the app reads it as a broken login rather than a missing record.
+
+## Android, when you get to it
+
+The deep-link config already targets this hostname (`web/scripts/android-postsync.mjs`), and
+the API already allows the two origins a Capacitor WebView presents:
+
+```
+^(https://motion\.edwintenbrinke\.nl|https://localhost|capacitor://localhost)$
+```
+
+The auth cookie is `SameSite=None; Secure`, so it rides along cross-origin.
+
+**One thing still needs deciding, and it is yours:** a Capacitor build with bundled assets
+calls the API cross-origin, which works but means `VITE_API_BASE_URL` must be the absolute
+hostname at build time (it is currently `""`, correct for the browser and wrong for the
+phone). The alternative is pointing Capacitor's `server.url` at the live site, which makes
+the app a thin shell — same-origin, nothing to configure, no offline shell.
+
+**And `/.well-known/assetlinks.json` does not exist yet.** nginx is configured to serve it
+with the right content type, but the file needs your app's signing-certificate fingerprint,
+which only exists once you have built and signed the APK. Without it a tapped notification
+opens the browser instead of the app (HANDOFF H6).
+
+## Still missing
+
+Honest list, all of it visible in the app as "nog niet beschikbaar" rather than as errors:
+
+- **Timeline** (H4) — `/api/cameras/{cam}/timeline` is not implemented; the scrubber has
+  nothing to draw
+- **Zones and notification rules** (H9) — the editor cannot save
+- **Push** (H5) — needs Phase 6 and a `google-services.json`
+- **Search and date filters** (H7) — `from`, `to`, `q` are still ignored by `EventController`
+- **No CI** — images are built by hand, as above

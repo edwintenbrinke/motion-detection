@@ -74,3 +74,5 @@ Two hardware facts drive a lot of the design and are easy to get wrong:
 - **The 1080 Ti is Pascal.** FP16 runs at 1/64 rate, so half-precision is a trap — but INT8
   via DP4A is fast, and NVDEC decodes H.264 in hardware for free. Configure for FP32/INT8,
   never FP16.
+
+- [11-deployment.md](11-deployment.md) — how the app is deployed on the cluster, and how media stays reachable only through it

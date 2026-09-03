@@ -179,7 +179,7 @@ minutes.
 
 ---
 
-## Phase 4 — Remote access · 1 evening
+## Phase 4 — Remote access · done 2026-09-03
 
 `motion.edwintenbrinke.nl` as an HTTPRoute on `envoy-external`, through the existing
 Cloudflare Tunnel, picking up the existing wildcard cert — the same pattern as `plex.` and
@@ -190,19 +190,43 @@ than just timing out.
 **Done when:** the live view works over 4G with the wifi off (via MSE, ~1 s — WebRTC is not
 expected to connect off the LAN), and the same hostname works unchanged at home over WebRTC.
 
+**Done.** `motion.edwintenbrinke.nl` is an HTTPRoute on `envoy-external` through the existing
+tunnel; external-dns wrote the record from the route itself, so there was no new DNS,
+certificate or tunnel configuration at all. The MSE rung was verified through the tunnel and
+answers **101 Switching Protocols** — the fallback engages rather than timing out, which is
+the thing this phase was told to check. The last mile, "over 4G with the wifi off", is yours
+to confirm on the phone; everything between here and the tunnel is proven.
+
+See [11-deployment.md](11-deployment.md).
+
 ---
 
-## Phase 5 — App v2 · built, pending a device
+## Phase 5 — App v2 · deployed, pending a device
 
 Per [05-android-app.md](05-android-app.md), built per
 [10-app-v2-implementation.md](10-app-v2-implementation.md). The longest phase and the most
 visible.
 
-**Status:** the app is written and runs end to end against a mock adapter
-(`npm run dev:mock`) — feed, event detail, live ladder, timeline, settings, push and deep
-links. What is left is the half that needs hardware and a backend: an Android build, and
-re-pointing `VITE_API_MODE` at a motion-api that serves the endpoints in
-[HANDOFF](HANDOFF.md) § "App v2 needs these from motion-api".
+**Status (2026-09-03):** it is live at **https://motion.edwintenbrinke.nl**, running against
+the real motion-api, with real events from the camera. Not against the mock any more.
+
+Built and verified: login, the event feed with **inline signed media**, thumbnails and
+snapshots and clips that serve with no session at all and 403 when tampered with or expired,
+the camera list read from Frigate's live config, and the live ladder — MSE over WebSocket
+through the tunnel, LL-HLS, single frames, with WebRTC offered LAN-only because it cannot
+traverse the tunnel.
+
+Frigate is not reachable from the internet at all: no HTTPRoute, no tunnel entry, and the
+route has exactly two backends. Every byte the app shows is fetched by nginx inside the
+motion-api pod after PHP has checked a signature or a session.
+
+The feed is filled by a one-minute poll of Frigate's events API rather than by Phase 6's
+MQTT bridge, because the difference between "works" and "looks broken" should not be a
+message broker. It upserts on Frigate's id, so it stays useful as a reconciler afterwards.
+
+Still missing, and visible in the app as "nog niet beschikbaar" rather than as errors: the
+timeline (H4), zones and notification rules (H9), push (H5), and the search/date filters
+(H7). Full account: [11-deployment.md](11-deployment.md).
 
 Order that keeps it useful throughout: API client layer → events feed → event detail with
 playback → WebRTC live → timeline scrubber → zone editor. The feed alone is already better
