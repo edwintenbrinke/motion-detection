@@ -57,6 +57,10 @@ Everything that's pure repo work with no real-world side effect until someone ap
   `api/bin/verify-notification-matcher.php` (12 checks, including the midnight-wrap
   time window). **Not yet wired into anything** — nothing calls it from the ingest
   path, and there's no endpoint to manage rules from the app yet.
+- 🔶 App v2 (in progress): being rebuilt events-first against a mock adapter so it is
+  reviewable without the cluster. Plan and progress checklist in
+  [10-app-v2-implementation.md](10-app-v2-implementation.md); the API contracts it needs are
+  in § "App v2 needs these from motion-api" below.
 - ✅ App: API-client layer (`src/api/eventsApi.js`, `devicesApi.js`), the events store
   (`src/stores/events.js`, cursor-paginated, not persisted), `EventCard.vue` +
   `EventsView.vue`, wired to `/events` behind the same `VITE_TEST_BUTTON` gate as the
@@ -96,6 +100,27 @@ you should run and review yourself — I left `api/bin/verify-media-token.php` a
 
 I'll commit each piece as it's done so nothing is lost if the session ends mid-task, and
 update this file's status column as I go.
+
+## App v2 needs these from motion-api
+
+The app is being built in full against a mock adapter (see
+[10-app-v2-implementation.md](10-app-v2-implementation.md)) because the cluster, Frigate and
+the Pi are unreachable right now. Everything below is a contract the **app already codes
+against** and the API does not serve yet. None of it blocks the app; all of it blocks
+`VITE_API_MODE=bff` being useful.
+
+| # | What is missing | Where the app assumes it |
+|---|---|---|
+| H1 | `media { thumbnail, snapshot, clip, expires_at }` inline on `EventOutputDTO`, all three signed with the same `$now`, plus the `/media/{kind}/{id}?exp&sig` controller that verifies them. `MediaTokenService` is written and **nothing calls it** | Feed thumbnails, detail player, notification images |
+| H2 | `GET /api/cameras` → `[{ name, display_name, width, height, retention }]` | Camera tabs, zone editor, storage screen |
+| H3 | `GET /api/cameras/{cam}/live` → ordered `rungs[]` (webrtc/mse/hls/snapshot). Token in the query string, not a header — a WebSocket and an `<img>` cannot set one. WebRTC rung points at the LAN go2rtc service, not the tunnel | The live fallback ladder |
+| H4 | `GET /api/cameras/{cam}/timeline?date&tz` → `{recordings[{start,end,vod_url}], previews[{start,end,preview_url}], events[], expires_at}`. HLS segments must be served under the same signed prefix as their playlist | The timeline scrubber |
+| H5 | FCM payload shape: `data {event_id, camera, url}` + `notification {title, body, image}` with a signed snapshot URL | Notification tap → deep link |
+| H6 | `/.well-known/assetlinks.json` on `motion.edwintenbrinke.nl` | App Links; without it a tapped link opens the browser |
+| H7 | `from`, `to`, `q` on `GET /api/events` — in the docs, ignored by `EventController::list()` | Date-range filter and the search box |
+| H8 | **Contract clash.** The endpoint validates `{feedback: string}`; 07 specifies `{correct, should_be}`. The app currently packs JSON into the string. Pick one | "Dit klopt niet" |
+| H9 | Zones, masks, notification rules, snooze, test — as written in 07. `NotificationRuleMatcher` exists with nothing HTTP-facing reaching it | Zones and notification settings |
+| H10 | **Bug, not a gap.** `DeviceInputDTO` silently loses `app_version`: the serializer's snake→camel converter looks for `appVersion`, which the DTO has neither as a property nor a setter, so it lands as `null` — and overwrites the stored value on re-registration | Device registration |
 
 ## Secrets generated tonight (fill into SOPS yourself)
 

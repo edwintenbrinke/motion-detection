@@ -51,6 +51,7 @@ solved problem that Frigate already solves better than a hand-rolled `cv2.absdif
 | 7 | [07-api-and-data-model.md](07-api-and-data-model.md) | New entities, endpoints, media tokens, migration |
 | 8 | [08-pi-agent.md](08-pi-agent.md) | What runs on the Pi afterwards, and what gets deleted |
 | 9 | [09-roadmap.md](09-roadmap.md) | Phases with done-criteria, effort, risks, rollback |
+| 10 | [10-app-v2-implementation.md](10-app-v2-implementation.md) | How the app is actually being built: adapters, the live ladder, build order, progress |
 | — | [adr/](adr/) | The seven decisions this plan rests on, and what was rejected |
 
 Cluster-side notes live in the other repo:

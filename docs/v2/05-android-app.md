@@ -145,6 +145,12 @@ Two new pieces of configuration:
   LAN and away from home, since it always resolves through Cloudflare either way (unlike a
   split LAN/VPN address, there is no build-time branching needed here)
 
+## How this is being built
+
+The screen-by-screen implementation plan, the API adapter that lets all of it run before the
+backend exists, and the running progress checklist live in
+[10-app-v2-implementation.md](10-app-v2-implementation.md).
+
 ## What can be built before the backend exists
 
 The app work does not have to wait for Phase 6. Frigate's HTTP API is available as soon as
