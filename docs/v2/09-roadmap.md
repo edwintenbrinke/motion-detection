@@ -121,23 +121,60 @@ woken up in Phase 6.
 
 ---
 
-## Phase 3 — GPU · 1 evening of work, one maintenance window
+## Phase 3 — GPU · done 2026-09-03, in an hour, no maintenance window
 
 Independent of everything else and the only phase with a blast radius outside this project.
 
-1. Talos schematic with `nonfree-kmod-nvidia-production` and
-   `nvidia-container-toolkit-production`
-2. `machine.install.image` + `machine.kernel.modules`; **re-provision the node**
-3. NVIDIA device plugin
-4. `nvidia-smi` in a test pod
-5. Frigate: `-tensorrt` image, ONNX detector, `USE_FP16=false`, `hwaccel_args: preset-nvidia`
+The plan for this phase was wrong in two ways, and both were load-bearing.
 
-**`edwin-gpu` is a single-node cluster that runs the Space Crucible production game.**
-Re-provisioning takes production down. Schedule it, verify the CNPG restore first, and treat
-it as a cluster change that the camera project happens to benefit from.
+1. ~~`nonfree-kmod-nvidia-production`~~ → **`nonfree-kmod-nvidia-lts`**. The production
+   extension is on NVIDIA 595.71.05, and **580 is the last branch that supports Maxwell,
+   Pascal and Volta**. A GTX 1080 Ti is GP102 — Pascal. Following the plan literally would
+   have installed a driver that does not know this card, on a node that had just rebooted.
+   `-lts` is 580.173.02; both NVIDIA extensions must carry the same driver version. This is
+   the risk row "Pascal dropped by a future CUDA, likelihood: low (this year)" arriving.
+2. ~~**re-provision the node**~~ → **upgrade it**. Talos installs system extensions through
+   an upgrade to a new installer image; the rendered config keeps `wipe: false`. The
+   maintenance window, the rebuild and the tested CNPG restore were all guarding against a
+   wipe that a re-provision does and an upgrade does not. What was actually needed was one
+   reboot, and the node was back in under two minutes.
+3. NVIDIA device plugin + a **`RuntimeClass`** — the plan omitted the second, and without it
+   a pod gets the ordinary runtime, no `/dev/nvidia*` and no driver libraries.
+4. `nvidia-smi` in a test pod ✅ *GTX 1080 Ti, 11264 MiB, compute 6.1, driver 580.173.02*
+5. Frigate: `-tensorrt` image, ONNX detector, `hwaccel_args: preset-nvidia`. **Not
+   TensorRT** — see below. `USE_FP16=false` turned out to be unnecessary rather than
+   critical: it belonged to the old TensorRT detector, and on the ONNX path the exported
+   model is FP32 throughout, so Pascal's 1/64-rate FP16 never comes up.
+
+> **The `-tensorrt` image has no TensorRT in it.** It ships CUDA 12 and cuDNN but no
+> `libnvinfer` anywhere in the filesystem, so onnxruntime's `TensorrtExecutionProvider`
+> fails to load and silently falls back to **CPU** — a GPU detector that is not on the GPU
+> and reports nothing wrong. Both providers were tried in a pod on the node before the
+> config was written; CUDA ran real inference. Ask for `type: onnx` and let Frigate choose.
+
+> **Do not drain.** `talosctl upgrade` drains by default and there is nowhere to drain to on
+> a single node. CNPG's single-instance PodDisruptionBudget blocks the eviction until the
+> timeout, and what you are left with is a cordoned node, everything `Pending`, and no
+> upgrade performed. `--drain=false`. This is how the first attempt failed.
 
 **Done when:** a pod sees the card; detector inference < 25 ms; Frigate's CPU drops
-noticeably with NVDEC on; the game is back up and green.
+noticeably with NVDEC on; the game is back up and green. **All four met:**
+
+| | Before (OpenVINO on CPU) | After (ONNX on the 1080 Ti) |
+|---|---|---|
+| Model | ssdlite_mobilenet_v2 | **YOLOv9-tiny 320** |
+| Inference | 17.5 ms | **8.1 ms** (target was < 25) |
+| Frigate CPU | 1013 m | **229 m** |
+| Node CPU | 30 % | **20 %** |
+| H.264 decode | CPU | **NVDEC** |
+| VRAM | — | 433 MiB of 11 GB |
+| The game | — | back up, green, 54/54 pods running |
+
+The halved inference time is the least of it. The model is a class better, and that is what
+makes the labels in Phase 7's feed worth reading. **The model is in neither git nor the
+image** — nothing ships a YOLO ONNX — so it is exported onto the config PVC by
+`kubernetes/apps/motion/frigate/model-export.job.yaml`, a committed one-shot that takes two
+minutes.
 
 ---
 
@@ -242,7 +279,7 @@ suppressing your own family. A Grafana dashboard next to the host dashboards.
 | Frigate config drift between git and the PVC | certain | medium | [adr/0005](adr/0005-frigate-config-on-pvc.md): PVC is the source, nightly export to git |
 | Ollama and Frigate contending for 11 GB VRAM | medium | low | `keep_alive: -1`, GenAI on alerts only, or a nightly batch |
 | Frigate breaking changes on upgrade | medium | medium | Pin the tag; read release notes; Renovate PRs reviewed, not auto-merged |
-| Pascal dropped by a future CUDA | low (this year) | medium | Pinned images; the fallback is the OpenVINO CPU detector, which already works |
+| Pascal dropped by a future CUDA | **already happened** | medium | The `-lts` extension (580.173.02) is the last branch with Pascal and is pinned. When it goes, the fallback is the OpenVINO CPU detector, which is still inside the same image and still works |
 | Scope creep into a full NVR product | high | medium | Frigate is the engine. Every "we could also…" that belongs in Frigate goes in Frigate |
 
 ## Rollback
