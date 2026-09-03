@@ -320,7 +320,7 @@ project. Mirrored into [HANDOFF.md](HANDOFF.md).
 - [x] 3 · API layer + mock world
 - [x] 4 · Shell, navigation, design tokens
 - [x] 5 · Events feed and event detail
-- [ ] 6 · Live player and the ladder
+- [x] 6 · Live player and the ladder
 - [ ] 7 · Timeline
 - [ ] 8 · Settings
 - [ ] 9 · Push and deep links
