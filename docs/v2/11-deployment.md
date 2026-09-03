@@ -185,11 +185,17 @@ opens the browser instead of the app (HANDOFF H6).
 
 ## Still missing
 
-Honest list, all of it visible in the app as "nog niet beschikbaar" rather than as errors:
+**The plan for all of it is [12-open-work.md](12-open-work.md)**, with causes diagnosed
+against the running system rather than guessed. Short version:
 
-- **Timeline** (H4) — `/api/cameras/{cam}/timeline` is not implemented; the scrubber has
-  nothing to draw
-- **Zones and notification rules** (H9) — the editor cannot save
+- **Refreshing logs you out** — the cold-start lock is right for a phone with a fingerprint
+  and wrong for a browser without one
+- **The live view goes choppy after a refresh** — three separate causes, all found
+- **The clip player reports the wrong duration** — Frigate's fMP4 carries none, and the
+  player believes it anyway
+- **Zones and masks** (H9) — the editor is built and has nothing to save to. The highest
+  value item here: nothing is scoped, so every person anywhere in frame is an alert
+- **Timeline** (H4) — built, and the endpoint it needs returns 404
 - **Push** (H5) — needs Phase 6 and a `google-services.json`
 - **Search and date filters** (H7) — `from`, `to`, `q` are still ignored by `EventController`
 - **No CI** — images are built by hand, as above
