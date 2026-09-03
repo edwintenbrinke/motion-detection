@@ -107,13 +107,14 @@ back to reach the machine in the next room. The public hostname is Phase 4's job
 
 | Criterion | |
 |---|---|
-| Events on walking past | ⏳ **needs a human.** The camera currently faces an empty room; the detector runs on every motion region and has simply had no person to find |
-| Clips play in a LAN browser | ⏳ follows from the first — no events, no clips yet |
-| Volume grows, then stops at 72 h | ⏳ 98 MB after ten minutes, which extrapolates to roughly the budgeted 96 GB |
-| Survives a pod restart | ✅ restarted during the detect fix; config, SQLite and recordings all intact |
+| Events on walking past | ✅ two `person` events, top score 0.74, in a dark room — detected by YOLOv9 on the GPU after Phase 3 landed |
+| Clips play in a LAN browser | ✅ `/api/events/<id>/clip.mp4` returns 1.1 MB of fMP4, snapshot with bounding box alongside |
+| Volume grows, then stops at 72 h | ⏳ 2.7 GB and climbing; the ceiling is the thing to check on 2026-09-06 |
+| Survives a pod restart | ✅ restarted repeatedly since, including the GPU cutover; config, SQLite and recordings intact |
 
-Then the actual work of this phase, which no amount of YAML substitutes for: **draw the
-zones and the motion masks** in Frigate's UI. Every hour spent there is an hour of not being
+What is left is the work no amount of YAML substitutes for: **draw the zones and the motion
+masks** in Frigate's UI. Note the two events above carry `zones: []` — nothing is scoped
+yet, so every person anywhere in frame is an alert. Every hour spent there is an hour of not being
 woken up in Phase 6.
 
 > Tune the masks here, properly, before notifications exist. Every hour spent on masks in
