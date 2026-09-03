@@ -1,18 +1,29 @@
 import { defineStore } from 'pinia';
 import { BiometricAuth } from '@aparajita/capacitor-biometric-auth';
 import { Preferences } from '@capacitor/preferences';
+import { decodeJwtExpiry } from '@/lib/jwt.js';
+import { DEFAULT_RELOCK_MINUTES } from '@/lib/env.js';
 
 const APP_STATE_KEYS = {
     IS_APP_ACTIVE: 'isAppActive',
     LAST_ACTIVE_TIME: 'lastActiveTime',
     BIOMETRIC_VERIFIED: 'biometricVerified',
+    RELOCK_MINUTES: 'relockMinutes',
 };
+
+const FALLBACK_TOKEN_MINUTES = 60;
 
 export const useAuthStore = defineStore('auth', {
     state: () => ({
         authToken: null,
         authTokenExpiry: null,
         hasLoggedInWithCredentials: false,
+        /**
+         * Where to go once the session gate is satisfied again. Set by a re-lock (so the
+         * user lands back where they were) and by a deep link that arrived while locked.
+         * In memory only -- it is a navigation intent, not session state.
+         */
+        pendingRoute: null,
     }),
 
     actions: {
@@ -24,13 +35,13 @@ export const useAuthStore = defineStore('auth', {
                 }
 
                 await BiometricAuth.authenticate({
-                    reason: 'Please authenticate to access the app',
-                    cancelTitle: 'Use Credentials Instead',
+                    reason: 'Ontgrendel de app',
+                    cancelTitle: 'Gebruik wachtwoord',
                     allowDeviceCredential: true,
-                    iosFallbackTitle: 'Use passcode',
+                    iosFallbackTitle: 'Gebruik toegangscode',
                     android: {
-                        title: 'Biometric Authentication',
-                        subtitle: 'Authenticate using your fingerprint',
+                        title: 'Ontgrendelen',
+                        subtitle: 'Bevestig met je vingerafdruk',
                         confirmationRequired: false,
                     },
                 });
@@ -50,7 +61,9 @@ export const useAuthStore = defineStore('auth', {
                 const { value: tokenExpiry } = await Preferences.get({ key: 'authTokenExpiry' });
                 if (!tokenExpiry) return false;
 
-                const expiryTime = parseInt(tokenExpiry);
+                const expiryTime = parseInt(tokenExpiry, 10);
+                if (!Number.isFinite(expiryTime)) return false;
+
                 return Date.now() < expiryTime;
             } catch (error) {
                 console.error('Error checking token validity:', error);
@@ -58,10 +71,13 @@ export const useAuthStore = defineStore('auth', {
             }
         },
 
-        async saveAuthToken(token, refreshToken, expiryInMinutes = 60) {
-            const expiryTime = Date.now() + expiryInMinutes * 60 * 1000;
+        async saveAuthToken(token, refreshToken, expiryInMinutes = FALLBACK_TOKEN_MINUTES) {
+            const expiryTime = decodeJwtExpiry(token) ?? Date.now() + expiryInMinutes * 60 * 1000;
+
             await Preferences.set({ key: 'authToken', value: token });
-            await Preferences.set({ key: 'refreshToken', value: refreshToken });
+            if (refreshToken) {
+                await Preferences.set({ key: 'refreshToken', value: refreshToken });
+            }
             await Preferences.set({ key: 'authTokenExpiry', value: expiryTime.toString() });
             await Preferences.set({ key: 'hasLoggedInWithCredentials', value: 'true' });
 
@@ -70,12 +86,29 @@ export const useAuthStore = defineStore('auth', {
             this.hasLoggedInWithCredentials = true;
         },
 
+        /**
+         * After a successful token refresh. This used to write only the token, leaving
+         * `authTokenExpiry` at its login-time value -- so the router guard threw the user
+         * out exactly 60 minutes after logging in no matter how many refreshes had
+         * succeeded, which is the opposite of what refresh tokens are for.
+         */
+        async updateAccessToken(token) {
+            const expiryTime = decodeJwtExpiry(token) ?? Date.now() + FALLBACK_TOKEN_MINUTES * 60 * 1000;
 
-        async clearAuthData() {
+            await Preferences.set({ key: 'authToken', value: token });
+            await Preferences.set({ key: 'authTokenExpiry', value: expiryTime.toString() });
+
+            this.authToken = token;
+            this.authTokenExpiry = expiryTime;
+        },
+
+        async clearAuthData({ forgetRefreshToken = false } = {}) {
             await Preferences.remove({ key: 'authToken' });
             await Preferences.remove({ key: 'authTokenExpiry' });
-            // await Preferences.remove({ key: 'refreshToken' });
             await Preferences.remove({ key: 'hasLoggedInWithCredentials' });
+            if (forgetRefreshToken) {
+                await Preferences.remove({ key: 'refreshToken' });
+            }
 
             this.authToken = null;
             this.authTokenExpiry = null;
@@ -84,7 +117,7 @@ export const useAuthStore = defineStore('auth', {
 
         async setAppActive() {
             await Preferences.set({ key: APP_STATE_KEYS.IS_APP_ACTIVE, value: 'true' });
-            await Preferences.set({ key: APP_STATE_KEYS.LAST_ACTIVE_TIME, value: Date.now().toString() });
+            await this.touchLastActive();
         },
 
         async setBiometricVerified(verified) {
@@ -108,6 +141,69 @@ export const useAuthStore = defineStore('auth', {
         async isAppActive() {
             const { value } = await Preferences.get({ key: APP_STATE_KEYS.IS_APP_ACTIVE });
             return value === 'true';
+        },
+
+        // -- Re-locking after time in the background ---------------------------------
+        //
+        // docs/v2/05-android-app.md: "re-lock after N minutes in the background -- the
+        // `pause` listener currently only logs, and a camera app is precisely the app that
+        // should re-lock". This is a re-lock, not a cold start: `isAppActive` stays true and
+        // only `biometricVerified` is dropped, so the user gets the fingerprint prompt
+        // rather than the password form.
+
+        async touchLastActive() {
+            await Preferences.set({ key: APP_STATE_KEYS.LAST_ACTIVE_TIME, value: Date.now().toString() });
+        },
+
+        async getRelockMinutes() {
+            const { value } = await Preferences.get({ key: APP_STATE_KEYS.RELOCK_MINUTES });
+            const parsed = Number.parseInt(value ?? '', 10);
+            return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_RELOCK_MINUTES;
+        },
+
+        async setRelockMinutes(minutes) {
+            await Preferences.set({ key: APP_STATE_KEYS.RELOCK_MINUTES, value: String(minutes) });
+        },
+
+        /** Called when the app goes to the background. */
+        async markBackgrounded() {
+            await this.touchLastActive();
+        },
+
+        /**
+         * Called when the app comes back. Returns true when the session was re-locked, so
+         * the caller can send the user to the login screen.
+         */
+        async relockIfExpired() {
+            if (!(await this.isBiometricVerified())) return false;
+
+            const { value } = await Preferences.get({ key: APP_STATE_KEYS.LAST_ACTIVE_TIME });
+            const lastActive = Number.parseInt(value ?? '', 10);
+            // No timestamp means we cannot tell how long it has been. Re-locking on a
+            // missing value would lock the user out of a session that may be seconds old,
+            // so record the moment instead and let the next background start the clock.
+            if (!Number.isFinite(lastActive)) {
+                await this.touchLastActive();
+                return false;
+            }
+
+            const limitMs = (await this.getRelockMinutes()) * 60 * 1000;
+            if (Date.now() - lastActive < limitMs) return false;
+
+            await this.setBiometricVerified(false);
+            return true;
+        },
+
+        stashPendingRoute(route) {
+            if (route && route !== '/') {
+                this.pendingRoute = route;
+            }
+        },
+
+        takePendingRoute() {
+            const route = this.pendingRoute;
+            this.pendingRoute = null;
+            return route;
         },
     },
 });

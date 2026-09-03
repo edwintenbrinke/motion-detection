@@ -9,6 +9,7 @@ import ImageRegionView from "@/views/ImageRegionView.vue";
 import EventsView from "@/views/EventsView.vue";
 import { useInitializeStore } from '@/stores/initialize';
 import { useAuthStore } from '@/stores/authentication';
+import { coldStartComplete } from '@/lib/coldStart.js';
 import TestView from "@/views/TestView.vue";
 
 
@@ -95,24 +96,30 @@ const router = createRouter({
 });
 
 router.beforeEach(async (to, from, next) => {
+  // The cold-start reset must finish before the flags below are read, or the very first
+  // navigation can see the previous session's state and skip the lock screen entirely.
+  await coldStartComplete();
+
+  const authStore = useAuthStore();
+
   await useInitializeStore()?.getInitializingInfo();
 
-  // Check if token is valid and biometric has been verified in this session
-  const tokenValid = await useAuthStore().isTokenValid();
-  const biometricVerified = await useAuthStore().isBiometricVerified();
-  const appActive = await useAuthStore().isAppActive();
-  console.log('statusss', tokenValid, biometricVerified, appActive)
-  // Always route to login page if app has been restarted or token is invalid
+  // The three-flag gate: a valid token is not enough on its own.
+  const tokenValid = await authStore.isTokenValid();
+  const biometricVerified = await authStore.isBiometricVerified();
+  const appActive = await authStore.isAppActive();
+
   if (to.meta.requiresAuth && (!tokenValid || !biometricVerified || !appActive)) {
+    // Remember where they were headed so unlocking returns them there instead of home.
+    authStore.stashPendingRoute(to.fullPath);
     return next({ path: '/', replace: true });
   }
 
-  // If going to login page but already verified, redirect to calendar
   if (to.path === '/' && tokenValid && biometricVerified && appActive) {
-    return next({ path: '/calendar', replace: true });
+    return next({ path: authStore.takePendingRoute() ?? '/calendar', replace: true });
   }
 
-  next(); // Proceed as normal
+  next();
 });
 
 // Execute the loadLayoutMiddleware before each route change
