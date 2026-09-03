@@ -1,20 +1,25 @@
+import AppLayout from '@/layouts/AppLayout.vue';
+
 /**
- * This middleware is used to dynamically update the Layouts system.
+ * Resolves `meta.layout` to a component.
  *
- * As soon as the route changes, it tries to pull the layout that we want to display from the laptop. Then it loads the layout component, and assigns the loaded component to the meta in the layout Component variable. And layoutComponent is used in the basic layout AppLayout.vue, there is a dynamic update of the layout component
- *
- * If the layout we want to display is not found, loads the default layout App Layout Default.vue
- * */
+ * The fallback used to import 'AppLayoutDefault.vue', which does not exist -- so a route
+ * with a bad layout threw twice and rendered nothing at all. The fallback is now a real,
+ * statically imported layout.
+ */
 export async function loadLayoutMiddleware(route) {
+    const layout = route.meta.layout;
+
+    if (!layout) {
+        route.meta.layoutComponent = AppLayout;
+        return;
+    }
+
     try {
-        let layout = route.meta.layout
-        let layoutComponent = await import(`@/layouts/${layout}.vue`)
-        route.meta.layoutComponent = layoutComponent.default
-    } catch (e) {
-        console.error('Error occurred in processing of layouts: ', e)
-        console.log('Mounted default layout AppLayoutDefault')
-        let layout = 'AppLayoutDefault'
-        let layoutComponent = await import(`@/layouts/${layout}.vue`)
-        route.meta.layoutComponent = layoutComponent.default
+        const module = await import(`@/layouts/${layout}.vue`);
+        route.meta.layoutComponent = module.default;
+    } catch (error) {
+        console.error(`Unknown layout "${layout}", falling back to AppLayout:`, error?.message);
+        route.meta.layoutComponent = AppLayout;
     }
 }

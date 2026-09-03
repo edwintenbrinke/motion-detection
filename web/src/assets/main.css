@@ -1,8 +1,86 @@
+/**
+ * Design tokens.
+ *
+ * The app used to hardcode #1e1e1e, #444, #eee and a handful of light-mode fallbacks in
+ * individual components, so "the surface colour" had no single definition and dark mode was
+ * dark in some places by accident. These are that definition. PrimeVue's own variables stay
+ * underneath for its components; these sit on top for everything the app draws itself.
+ *
+ * Dark is the only mode (index.html carries .dark-mode permanently). A camera app is looked
+ * at in the dark, and a light theme nobody asked for is a theme nobody maintains.
+ */
+:root {
+  --app-bg: #0f1114;
+  --app-surface: #191d22;
+  --app-surface-raised: #21262d;
+  --app-surface-hover: #272d35;
+  --app-border: #2b323a;
+  --app-border-strong: #3b444e;
+
+  --app-text: #eceff2;
+  --app-text-muted: #98a2ad;
+  --app-text-faint: #6b7681;
+
+  /* An alert is a person or a car where you care; a detection is everything else that was
+     recorded. The colours have to make that difference readable at a glance in a list. */
+  --app-alert: #ff6b5b;
+  --app-alert-dim: rgba(255, 107, 91, 0.14);
+  --app-detection: #6aa9e0;
+  --app-detection-dim: rgba(106, 169, 224, 0.12);
+
+  --app-accent: #f2b134;
+  --app-success: #6cc070;
+  --app-danger: #ff5b5b;
+
+  --app-space-1: 4px;
+  --app-space-2: 8px;
+  --app-space-3: 12px;
+  --app-space-4: 16px;
+  --app-space-5: 24px;
+  --app-space-6: 32px;
+
+  --app-radius-sm: 6px;
+  --app-radius: 10px;
+  --app-radius-lg: 16px;
+
+  --app-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+
+  /* The bottom tab bar's height, so scroll containers can clear it without guessing. */
+  --app-tabbar-height: 58px;
+
+  /* Notch and gesture-bar insets. Needs viewport-fit=cover in index.html to be non-zero. */
+  --app-safe-top: env(safe-area-inset-top, 0px);
+  --app-safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
 body {
   margin: 0;
-  background-color: var(--p-content-background);
-  color: white;
-  font-family: 'Inter', sans-serif;
+  height: 100%;
+}
+
+body {
+  background-color: var(--app-bg);
+  color: var(--app-text);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 15px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  /* A camera feed is scrolled and dragged; a rubber-banding page under a scrubber is worse
+     than no rubber band. */
+  overscroll-behavior-y: none;
+}
+
+#app {
+  min-height: 100%;
+}
+
+button {
+  font-family: inherit;
 }
 
 /* Remove number input arrows */
@@ -15,6 +93,19 @@ input::-webkit-inner-spin-button {
 /* Firefox */
 input[type=number] {
   -moz-appearance: textfield;
+}
+
+/* Screen-reader-only text, for icon buttons that still need a name. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* Dark theme styles for FullCalendar */

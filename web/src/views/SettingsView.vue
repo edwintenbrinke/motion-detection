@@ -1,193 +1,83 @@
 <template>
-  <form class="settings-form">
-    <div class="form-row" style="margin-top: 24px">
-      <div class="form-group">
-        <label>Motion threshold</label>
-        <input
-            type="number"
-            v-model="settings.motion_threshold"
-        >
-      </div>
-
-      <div class="form-group">
-        <label>ROI Motion threshold</label>
-        <input
-            type="number"
-            v-model="settings.roi_motion_threshold"
-        >
-      </div>
+  <AppScreen title="Instellingen">
+    <div class="group">
+      <SettingsRow
+          label="Notificaties"
+          description="Regels, stille uren en sluimeren"
+          icon="pi pi-bell"
+          to="/settings/notifications"
+      />
+      <SettingsRow
+          label="Zones"
+          description="Teken waar je wel en niet op wilt letten"
+          icon="pi pi-images"
+          to="/settings/zones"
+      />
+      <SettingsRow
+          label="Opslag"
+          description="Bewaartermijn en lokale cache"
+          icon="pi pi-database"
+          to="/settings/storage"
+      />
+      <SettingsRow
+          label="Account"
+          description="Vergrendeling, push en uitloggen"
+          icon="pi pi-user"
+          to="/settings/account"
+      />
     </div>
 
-    <div class="form-row">
-      <div class="form-group">
-        <label>Recording extension</label>
-        <input
-            type="number"
-            v-model="settings.recording_extension"
-        >
-      </div>
-
-      <div class="form-group">
-        <label>Max recording duration</label>
-        <input
-            type="number"
-            v-model="settings.max_recording_duration"
-        >
-      </div>
+    <p class="group-title">Archief</p>
+    <div class="group">
+      <SettingsRow
+          label="Oude opnames"
+          description="De opnames van vóór Frigate, op datum"
+          icon="pi pi-calendar"
+          to="/archive"
+      />
     </div>
 
-    <div class="form-group">
-      <label>Max disk usage in GB per type</label>
-      <input
-          type="number"
-          v-model="settings.max_disk_usage_in_gb"
-      >
-    </div>
-    <div class="button-container">
-      <button type="button" @click="handleImageRegion" class="button action-button">
-        <i class="pi pi-plus"></i>
-        Region
-      </button>
-      <button type="button" @click="resetLocalStorage" class="button action-button">
-        <i class="pi pi-replay"></i>
-        Storage
-      </button>
-    </div>
-    <div class="button-container">
-      <button type="button" @click="handleLogout" class="button">
-        <i class="pi pi-sign-out"></i>
-        Logout
-      </button>
-      <button type="button" @click="saveSettings" class="button">
-        <i class="pi pi-save"></i>
-        Save changes
-      </button>
-    </div>
-  </form>
+    <template v-if="isMock">
+      <p class="group-title">Mock</p>
+      <MockControls />
+    </template>
+
+    <p class="version">Motion {{ appVersion }} · {{ apiMode }}</p>
+  </AppScreen>
 </template>
 
-<script>
-import {useInitializeStore} from "@/stores/initialize";
-import {useVideoStore} from "@/stores/video";
-import Toast from 'primevue/toast';
-import {useAuthStore} from "@/stores/authentication";
+<script setup>
+import { defineAsyncComponent } from 'vue';
+import AppScreen from '@/components/ui/AppScreen.vue';
+import SettingsRow from '@/components/ui/SettingsRow.vue';
+import { APP_VERSION, IS_MOCK, API_MODE } from '@/lib/env.js';
 
-export default {
-  name: 'SettingsPage',
-  components: {
-    Toast
-  },
-  data() {
-    return {
-      settings: {
-        motion_threshold: 0,
-        roi_motion_threshold: 0,
-        recording_extension: 0,
-        max_recording_duration: 0,
-        max_disk_usage_in_gb: 0,
-      }
-    }
-  },
-  async created() {
-    this.settings = useInitializeStore().getSettings();
-  },
-  methods: {
-    handleImageRegion() {
-      this.$router.push('/settings/image-region')
-    },
-    async saveSettings() {
-      try {
-        await this.$api.patch('/api/user/settings/' + this.settings.id, this.settings)
-        this.$router.push('/calendar');
-        this.$toast.add({ severity: 'success', summary: 'Success', detail: 'Successfully saved settings.', life: 2000 });
-      } catch (error) {
-        console.error('Failed to save settings:', error)
-      }
-    },
-    async handleLogout() {
-      await useAuthStore().clearAuthData();
-      await this.$api.post('/api/logout')
-      this.$router.push('/');
-      this.$toast.add({ severity: 'success', summary: 'Success', detail: 'Successfully logged out.', life: 2000 });
-    },
-    resetLocalStorage() {
-      useVideoStore().resetStore();
-      useInitializeStore().resetStore()
-      this.$toast.add({ severity: 'success', summary: 'Success', detail: 'Successfully reset storage.', life: 2000 });
-    }
-  }
-}
+const appVersion = APP_VERSION;
+const isMock = IS_MOCK;
+const apiMode = API_MODE === 'mock' ? 'mock-data' : 'live';
+
+// Async so the mock panel is never in the production bundle's critical path.
+const MockControls = defineAsyncComponent(() => import('@/components/dev/MockControls.vue'));
 </script>
 
 <style scoped>
-.settings-form {
-  max-width: 100%;
-  width: 100%;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  padding: 0 16px;
-  box-sizing: border-box;
+.group {
+  border-top: 1px solid var(--app-border);
 }
 
-.form-row {
-  display: flex;
-  gap: 16px;
-  width: 100%;
+.group-title {
+  margin: var(--app-space-5) var(--app-space-4) var(--app-space-2);
+  color: var(--app-text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  width: 100%;
-}
-
-label {
-  font-size: 16px;
-  font-weight: 500;
-}
-
-input {
-  width: 100%;
-  padding: 10px;
-  border: none;
-  border-radius: 4px;
-  font-size: 16px;
-  background: white;
-  box-sizing: border-box;
-  color: #666;
-}
-
-input::placeholder {
-  color: #666;
-}
-
-.button-container {
-  display: flex;
-  gap: 16px;
-}
-
-.action-button {
-  flex: 1;
-  padding: 10px;
-  font-size: 14px;
-}
-
-.button {
-  flex: 1;
-  padding: 10px;
-  border: 1px solid #444;
-  border-radius: 4px;
-  font-size: 18px;
-  cursor: pointer;
+.version {
+  margin: var(--app-space-5) 0;
+  color: var(--app-text-faint);
+  font-size: 12px;
   text-align: center;
-  background-color: #1e1e1e;
-  transition: color 0.3s;
-}
-
-.button:hover {
-  color: var(--p-primary-color);
 }
 </style>

@@ -351,7 +351,7 @@ export default defineComponent({
       this.currentDate = this.currentDate.add(offset, 'day');
       const newDate = this.currentDate.format("YYYY-MM-DD");
       if (this.route.params.date !== newDate) {
-        this.router.push(`/calendar/${newDate}`);
+        this.router.push(`/archive/${newDate}`);
         Object.keys(this.expandKey).forEach((key) => {
           this.expandKey[key] = false;
         });
