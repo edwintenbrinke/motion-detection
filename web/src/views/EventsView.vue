@@ -7,7 +7,7 @@
             :class="{ active: !eventsStore.filters.severity }"
             @click="setSeverityFilter(null)"
         >
-          <i class="fa-solid fa-list"></i>
+          <i class="pi pi-list"></i>
           <span>All</span>
         </div>
         <div
@@ -15,7 +15,7 @@
             :class="{ active: eventsStore.filters.severity === 'alert' }"
             @click="setSeverityFilter('alert')"
         >
-          <i class="fa-solid fa-triangle-exclamation"></i>
+          <i class="pi pi-exclamation-triangle"></i>
           <span>Alerts</span>
         </div>
       </div>
@@ -28,7 +28,7 @@
     </div>
 
     <div v-if="!eventsStore.loading && eventsStore.events.length === 0 && !eventsStore.error" class="empty-state">
-      <i class="fa-solid fa-camera"></i>
+      <i class="pi pi-camera"></i>
       <p>Nog geen events.</p>
     </div>
 

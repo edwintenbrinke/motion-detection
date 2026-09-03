@@ -38,7 +38,7 @@
             class="fingerprint-button"
             :disabled="!bioAuthAvailable"
         >
-          <i class="fa-solid fa-fingerprint"></i>
+          <i class="pi pi-verified"></i>
         </button>
       </div>
     </form>

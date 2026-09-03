@@ -7,17 +7,17 @@
         class="p-button p-component p-button-icon-only p-button-rounded expand-button"
         :style="collapseButtonStyle"
     >
-      <i class="fa-solid fa-compress" />
+      <i class="pi pi-angle-double-up" />
     </button>
 
     <!-- Date navigator -->
     <div class="date-navigator p-d-flex p-jc-between p-ai-center p-mb-3">
       <Button icon="pi pi-chevron-left" @click="changeDate(-1)">
-        <i class="fas fa-chevron-left"></i>
+        <i class="pi pi-chevron-left"></i>
       </Button>
       <h2 class="date-display">{{ currentDate.format("MMMM D, YYYY") }}</h2>
       <Button icon="pi pi-chevron-right" @click="changeDate(1)">
-        <i class="fas fa-chevron-right"></i>
+        <i class="pi pi-chevron-right"></i>
       </Button>
     </div>
 
@@ -29,7 +29,7 @@
             :class="{ 'active': !showImportantOnly }"
             @click="setImportanceFilter(false)"
         >
-          <i class="fa-solid fa-list"></i>
+          <i class="pi pi-list"></i>
           <span>Normal</span>
         </div>
         <div
@@ -37,7 +37,7 @@
             :class="{ 'active': showImportantOnly }"
             @click="setImportanceFilter(true)"
         >
-          <i class="fa-solid fa-flag"></i>
+          <i class="pi pi-flag"></i>
           <span>Important</span>
         </div>
       </div>

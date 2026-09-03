@@ -1,6 +1,5 @@
 import './assets/main.css'
-import "@fortawesome/fontawesome-free/css/all.css";
-import "@fortawesome/fontawesome-free/js/all.js";
+import 'primeicons/primeicons.css'
 import '@fontsource/inter'; // Default weight (400)
 import '@fontsource/inter/500.css'; // Optional weights
 import '@fontsource/inter/600.css';

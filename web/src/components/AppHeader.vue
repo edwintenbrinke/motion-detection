@@ -2,21 +2,21 @@
   <header class="header">
     <span>
       <button class="icon-button" @click="openLivestream">
-        <i class="fa-solid fa-camera"></i>
+        <i class="pi pi-camera"></i>
       </button>
       <button class="icon-button" style="margin-left:10px;" v-show="testButton" @click="openTest">
-        <i class="fa-solid fa-vial"></i>
+        <i class="pi pi-bolt"></i>
       </button>
       <!-- Scaffolding for docs/v2/05-android-app.md, gated the same way as the test
            button -- not shipped as the default nav until motion-api's v2 endpoints
            are deployed anywhere but a local dev stack. See docs/v2/HANDOFF.md. -->
       <button class="icon-button" style="margin-left:10px;" v-show="testButton" @click="openEvents">
-        <i class="fa-solid fa-bell"></i>
+        <i class="pi pi-bell"></i>
       </button>
     </span>
     <h1 class="header-title icon-button" @click="openCalendar">Motion Detected</h1>
     <button class="icon-button" @click="openSettings">
-      <i class="fas fa-cog"></i>
+      <i class="pi pi-cog"></i>
     </button>
   </header>
 </template>

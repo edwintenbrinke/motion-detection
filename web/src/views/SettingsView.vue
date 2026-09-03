@@ -45,21 +45,21 @@
     </div>
     <div class="button-container">
       <button type="button" @click="handleImageRegion" class="button action-button">
-        <i class="fa-solid fa-plus"></i>
+        <i class="pi pi-plus"></i>
         Region
       </button>
       <button type="button" @click="resetLocalStorage" class="button action-button">
-        <i class="fa-solid fa-rotate-right"></i>
+        <i class="pi pi-replay"></i>
         Storage
       </button>
     </div>
     <div class="button-container">
       <button type="button" @click="handleLogout" class="button">
-        <i class="fa-solid fa-right-from-bracket"></i>
+        <i class="pi pi-sign-out"></i>
         Logout
       </button>
       <button type="button" @click="saveSettings" class="button">
-        <i class="fa-regular fa-floppy-disk"></i>
+        <i class="pi pi-save"></i>
         Save changes
       </button>
     </div>

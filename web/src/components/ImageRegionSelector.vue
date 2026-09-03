@@ -1,15 +1,15 @@
 <template>
   <header class="header">
     <Button @click="saveClick" severity="secondary" >
-      <i class="fa-regular fa-floppy-disk"></i>
+      <i class="pi pi-save"></i>
     </Button>
 
     <Button @click="resetClick" severity="secondary" >
-      <i class="fa-solid fa-rotate"></i>
+      <i class="pi pi-refresh"></i>
     </Button>
 
     <Button @click="placeholderClick" severity="secondary" >
-      <i class="fa-solid fa-camera"></i>
+      <i class="pi pi-camera"></i>
     </Button>
 
     <input
@@ -20,7 +20,7 @@
     />
 
     <Button @click="closeClick" severity="secondary" >
-      <i class="fa-solid fa-xmark"></i>
+      <i class="pi pi-times"></i>
     </Button>
   </header>
   <div ref="containerRef" class="canvas-container">

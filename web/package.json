@@ -1,12 +1,17 @@
 {
   "name": "motion-detection",
-  "version": "0.0.0",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:mock": "vite --mode mock",
     "build": "vite build",
+    "build:mock": "vite build --mode mock",
     "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "cap:sync": "npm run build && cap sync android && node scripts/android-postsync.mjs",
     "ionic:build": "npm run build",
     "ionic:serve": "vite dev --host 0.0.0.0 --port 8100"
   },
@@ -18,19 +23,22 @@
     "@capacitor/haptics": "6.0.2",
     "@capacitor/keyboard": "6.0.3",
     "@capacitor/preferences": "^6.0.3",
+    "@capacitor/push-notifications": "^6.0.5",
+    "@capacitor/screen-orientation": "^6.0.4",
+    "@capacitor/share": "^6.0.4",
     "@capacitor/status-bar": "6.0.2",
     "@fontsource/inter": "^5.1.1",
-    "@fortawesome/fontawesome-free": "^6.7.2",
     "@fullcalendar/daygrid": "^6.1.15",
     "@fullcalendar/interaction": "^6.1.15",
     "@fullcalendar/vue3": "^6.1.15",
     "@primeuix/themes": "^1.0.0-rc.1",
-    "@splidejs/splide": "^4.1.4",
     "axios": "^1.7.9",
     "dayjs": "^1.11.13",
+    "hls.js": "^1.7.2",
     "lodash": "^4.17.21",
     "pinia": "^2.3.0",
     "pinia-plugin-persistedstate": "^4.2.0",
+    "primeicons": "^7.0.0",
     "primevue": "^4.2.5",
     "vue": "^3.5.13",
     "vue-router": "^4.5.0"
@@ -39,7 +47,10 @@
     "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "6.2.0",
     "@vitejs/plugin-vue": "^5.2.1",
+    "@vue/test-utils": "^2.5.0",
+    "jsdom": "^25.0.1",
     "vite": "^6.0.5",
-    "vite-plugin-vue-devtools": "^7.6.8"
+    "vite-plugin-vue-devtools": "^7.6.8",
+    "vitest": "^2.1.9"
   }
 }

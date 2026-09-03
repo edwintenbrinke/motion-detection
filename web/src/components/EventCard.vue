@@ -40,8 +40,8 @@ export default {
     },
     severityIcon() {
       return this.event.severity === 'alert'
-          ? 'fa-solid fa-triangle-exclamation'
-          : 'fa-solid fa-eye';
+          ? 'pi pi-exclamation-triangle'
+          : 'pi pi-eye';
     },
   },
 };
