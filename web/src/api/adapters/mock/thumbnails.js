@@ -1,4 +1,4 @@
-import { LABELS_NL } from './fixtures.js';
+import { LABELS_NL } from '@/lib/vocabulary.js';
 
 /**
  * Generated stills, as SVG data URIs.

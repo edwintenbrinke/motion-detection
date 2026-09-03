@@ -1,3 +1,5 @@
+import { SUB_LABELS_NL } from '@/lib/vocabulary.js';
+
 /**
  * The vocabulary of the mock world, taken from the real one: the COCO labels Frigate
  * detects (docs/v2/03-detection-and-ai.md, layer 1), the zones this camera will have, the
@@ -12,15 +14,6 @@ export const CAMERAS = [
 
 export const ZONES = ['pad', 'straat', 'tuin'];
 
-export const LABELS_NL = {
-    person: 'Persoon',
-    car: 'Auto',
-    bicycle: 'Fiets',
-    motorcycle: 'Motor',
-    dog: 'Hond',
-    cat: 'Kat',
-};
-
 /** Weighted so a doorbell view looks like a doorbell view: mostly people and cars. */
 export const LABEL_WEIGHTS = [
     ['person', 45],
@@ -31,7 +24,7 @@ export const LABEL_WEIGHTS = [
     ['motorcycle', 4],
 ];
 
-export const SUB_LABELS = ['bezorger', 'postbode', 'bewoner', 'onbekend'];
+export const SUB_LABELS = Object.keys(SUB_LABELS_NL);
 
 export const DERIVED_TAGS = ['voorbijganger', 'bezoek', 'mogelijk bezorger', 'fietser', 'nacht'];
 
@@ -57,16 +50,6 @@ export const NARRATIVES = {
     dog: [['Hond in beeld', 'Een hond snuffelt rond op het pad.']],
     cat: [['Kat loopt door de tuin', 'Een kat steekt langzaam het pad over.']],
 };
-
-export const FEEDBACK_OPTIONS = [
-    { value: 'person', label: 'Persoon' },
-    { value: 'car', label: 'Auto' },
-    { value: 'bicycle', label: 'Fiets' },
-    { value: 'bezorger', label: 'Bezorger' },
-    { value: 'bewoner', label: 'Bewoner' },
-    { value: 'animal', label: 'Kat of hond' },
-    { value: 'none', label: 'Niets / vals alarm' },
-];
 
 /** The day-one rule set from docs/v2/04-notifications.md, as the mock's stored rules. */
 export const DEFAULT_NOTIFICATION_RULES = [
