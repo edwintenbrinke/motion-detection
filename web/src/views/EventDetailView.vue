@@ -105,7 +105,7 @@ import { ref, computed, watch, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { Share } from '@capacitor/share';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
-import { useToast } from 'primevue/usetoast';
+import { useNotify } from '@/composables/useNotify.js';
 import { useEventsStore } from '@/stores/events';
 import { formatTimeSeconds, formatDayHeading, formatDuration } from '@/lib/datetime.js';
 import { headline, chips, cameraNl, severityLabel, genaiSeverityNl } from '@/lib/eventPresenter.js';
@@ -120,7 +120,7 @@ const APP_LINK_BASE = 'https://motion.edwintenbrinke.nl';
 const route = useRoute();
 const router = useRouter();
 const store = useEventsStore();
-const toast = useToast();
+const notify = useNotify();
 
 const root = ref(null);
 const loadError = ref(null);
@@ -188,9 +188,9 @@ async function share() {
     if (error?.message?.includes('canceled') || error?.message?.includes('cancelled')) return;
     try {
       await navigator.clipboard.writeText(url);
-      toast.add({ severity: 'success', summary: 'Link gekopieerd', life: 2000 });
+      notify.success('Link gekopieerd');
     } catch {
-      toast.add({ severity: 'warn', summary: 'Delen lukt hier niet', life: 2500 });
+      notify.warn('Delen lukt hier niet');
     }
   }
 }
@@ -202,9 +202,9 @@ async function submitFeedback(payload) {
     feedbackSent.value = true;
     feedbackOpen.value = false;
     Haptics.impact({ style: ImpactStyle.Medium }).catch(() => {});
-    toast.add({ severity: 'success', summary: 'Bedankt', detail: 'Je correctie is opgeslagen.', life: 2500 });
+    notify.success('Bedankt', 'Je correctie is opgeslagen.');
   } catch (error) {
-    toast.add({ severity: 'error', summary: 'Versturen mislukt', detail: error?.message, life: 3000 });
+    notify.error('Versturen mislukt', error?.message);
   } finally {
     feedbackSending.value = false;
   }

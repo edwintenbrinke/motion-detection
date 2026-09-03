@@ -43,12 +43,12 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { Capacitor } from '@capacitor/core';
-import { useToast } from 'primevue/usetoast';
+import { useNotify } from '@/composables/useNotify.js';
 import { api } from '@/api';
 import { cameraNl } from '@/lib/eventPresenter.js';
 import LivePlayer from '@/components/live/LivePlayer.vue';
 
-const toast = useToast();
+const notify = useNotify();
 
 const cameras = ref([]);
 const active = ref(null);
@@ -92,7 +92,7 @@ async function takeSnapshot() {
   const rung = source?.rungs?.find((candidate) => candidate.type === 'snapshot');
 
   if (!rung?.url) {
-    toast.add({ severity: 'warn', summary: 'Snapshot niet beschikbaar', life: 2500 });
+    notify.warn('Snapshot niet beschikbaar');
     return;
   }
 
@@ -103,9 +103,9 @@ async function takeSnapshot() {
 async function shareSnapshot() {
   try {
     await navigator.clipboard.writeText(snapshot.value);
-    toast.add({ severity: 'success', summary: 'Link gekopieerd', life: 2000 });
+    notify.success('Link gekopieerd');
   } catch {
-    toast.add({ severity: 'warn', summary: 'Delen lukt hier niet', life: 2500 });
+    notify.warn('Delen lukt hier niet');
   }
 }
 
@@ -124,7 +124,7 @@ async function toggleOrientation() {
       landscape.value = true;
     }
   } catch {
-    toast.add({ severity: 'warn', summary: 'Draaien lukt hier niet', life: 2000 });
+    notify.warn('Draaien lukt hier niet');
   }
 }
 

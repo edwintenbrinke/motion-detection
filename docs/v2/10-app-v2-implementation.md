@@ -321,7 +321,7 @@ project. Mirrored into [HANDOFF.md](HANDOFF.md).
 - [x] 4 · Shell, navigation, design tokens
 - [x] 5 · Events feed and event detail
 - [x] 6 · Live player and the ladder
-- [ ] 7 · Timeline
+- [x] 7 · Timeline
 - [ ] 8 · Settings
 - [ ] 9 · Push and deep links
 - [ ] 10 · Docs
