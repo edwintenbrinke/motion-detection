@@ -76,19 +76,45 @@ let the soak log run a day. Phase 2 does not depend on either.
 
 ---
 
-## Phase 2 — Frigate on the cluster, CPU only · 2–3 evenings
+## Phase 2 — Frigate on the cluster, CPU only · running, awaiting a walk past the camera
 
 The big one, and deliberately **without the GPU** so it does not depend on a node
 re-provision. OpenVINO on the i5-8600K handles one camera at 5 detect-fps.
 
 Per [06-kubernetes.md](06-kubernetes.md): namespace, storage (config on NVMe, recordings on
-NFS — never SQLite on NFS), HelmRelease, HTTPRoute on the internal gateway. Then in Frigate's
-own UI: draw the zones, draw the motion masks, tune `threshold` and `contour_area`, set
-retention.
+NFS — never SQLite on NFS), HelmRelease, and a LAN `LoadBalancer` rather than a gateway
+route. Then in Frigate's own UI: draw the zones, draw the motion masks, tune `threshold` and
+`contour_area`, set retention.
 
 **Done when:** events appear within seconds of walking past the camera; clips play in a
 browser on the LAN; the recordings volume grows and then *stops* growing at the retention
 budget after 72 h; Frigate survives a pod restart with its config and database intact.
+
+**Where it stands (2026-09-03).** Frigate 0.17.2 is running in the `motion` namespace on
+`edwin-gpu`, managed by Flux from `homelab-cluster` main. Reachable on the LAN at
+**http://192.168.1.248:5000** — a `LoadBalancer` service, not an HTTPRoute, because this
+cluster has no split-DNS and a hostname would send LAN traffic out through Cloudflare and
+back to reach the machine in the next room. The public hostname is Phase 4's job.
+
+| | |
+|---|---|
+| Pipeline | Pi → MediaMTX RTSP → go2rtc (one pull) → Frigate. Verified frame-by-frame over the LAN |
+| Camera | `camera_fps` 5.1, `process_fps` 5.1, **`skipped_fps` 0.0** |
+| Detector | OpenVINO on CPU, **17.5 ms** inference, `detection_fps` 6.8 |
+| Frigate CPU | **1013 m** of its 2500 m limit. Node total 30 % — the game is untouched |
+| Storage | NFS `nfs4` mount live, 3.9 TB free; recordings, previews and clips all writing |
+| Retention | 3 days continuous, 30 alerts, 7 detections — as Phase 0 decided |
+
+| Criterion | |
+|---|---|
+| Events on walking past | ⏳ **needs a human.** The camera currently faces an empty room; the detector runs on every motion region and has simply had no person to find |
+| Clips play in a LAN browser | ⏳ follows from the first — no events, no clips yet |
+| Volume grows, then stops at 72 h | ⏳ 98 MB after ten minutes, which extrapolates to roughly the budgeted 96 GB |
+| Survives a pod restart | ✅ restarted during the detect fix; config, SQLite and recordings all intact |
+
+Then the actual work of this phase, which no amount of YAML substitutes for: **draw the
+zones and the motion masks** in Frigate's UI. Every hour spent there is an hour of not being
+woken up in Phase 6.
 
 > Tune the masks here, properly, before notifications exist. Every hour spent on masks in
 > Phase 2 is an hour of not being woken up in Phase 6.

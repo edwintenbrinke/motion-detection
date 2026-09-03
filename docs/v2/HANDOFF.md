@@ -12,7 +12,7 @@ Running list. Anything here I skip and log, rather than guess or work around. Ev
 | 1 | ⬜ Firebase project for FCM | Needs your Google account, browser, 2FA | Create a Firebase project → Cloud Messaging → download `google-services.json` → drop it at `web/android/app/google-services.json` (not in git — see `.gitignore`) |
 | 2 | ⬜ `MEDIA_SIGNING_KEY` secret | Fine for me to generate, but it needs to go into SOPS which needs your `age.key` | I'll generate the value and leave it in `docs/v2/HANDOFF.md` § secrets below, or a local file — you run `sops -e` |
 | 3 | ⬜ Frigate/Mosquitto SOPS secrets | Same — needs `age.key` from `homelab-cluster/age.key` | Same as above |
-| 4 | ⬜ NFS export on edwin-server | Needs sudo on `edwin-server` (192.168.1.253), a box I have no access to | Run the `/etc/exports` change in `docs/v2/06-kubernetes.md` yourself, or tell me if I should have SSH access to it too |
+| 4 | ✅ NFS export on edwin-server | **Not a blocker after all.** `edwin-server` answers on its IP (the `edwin-server` hostname fails host-key verification, which is what made it look unreachable), and no `/etc/exports` change was needed anyway: `/mnt/external4` is already exported to the node for the `media` namespace, and NFSv4 mounts a subdirectory of an export happily. `mkdir /mnt/external4/motion` was the whole prerequisite, and it needed no sudo | — |
 | 5 | ⬜ Android build of the new app | Needs Android Studio and a device; I can build the web bundle but not the APK | `cd web && npm install && npm run cap:sync && npx cap open android`. The sync script patches the native project for deep links and push. Drop `google-services.json` into `web/android/app/` first if you want push to work; without it the app still runs and says so in Settings → Account |
 
 ## Needs a deliberate, awake decision from you (not a credentials problem)
@@ -24,9 +24,9 @@ irreversible thing":
 | # | What | Why it waits for you |
 |---|---|---|
 | 6 | ✅ Start MediaMTX on the Pi | **Done 2026-09-03**, on your go-ahead. Nothing held the camera, so the cutover was one `systemctl start`. Streaming 1080p25 @ 3.00 Mbit, upright, keyframe every second. One item left over and it is hardware: the Pi has no active cooler and is thermally throttled (`get_throttled=0xe0006` at 83–86 °C) — see Phase 1 in the roadmap |
-| 7 | ⬜ Pushing `kubernetes/apps/motion/*` to `homelab-cluster` main | Flux auto-applies on push. I'll build it on a branch and open it for your review first — not merge it myself |
+| 7 | ✅ Pushing `kubernetes/apps/motion/*` to `homelab-cluster` main | Built on `feat/motion-phase2-frigate`, validated (kustomize build, `helm template`, Frigate's own config validator in a pod, the NFS mount proven from a pod), then merged **on your explicit go-ahead** 2026-09-03. Frigate is running |
 | 8 | ⬜ GPU node re-provisioning (Phase 3) | Takes down `space-crucible-prod`. Explicitly scheduled as its own maintenance window in the roadmap, not attempted here regardless of time available |
-| 9 | ⬜ Creating the `motion.edwintenbrinke.nl` DNS/HTTPRoute | Cheap and safe, but it's the first real "this is now reachable" step — flagging it rather than silently making something newly reachable while you're asleep |
+| 9 | ⬜ Creating the `motion.edwintenbrinke.nl` DNS/HTTPRoute | Cheap and safe, but it's the first real "this is now reachable" step — flagging it rather than silently making something newly reachable while you're asleep. Still open, and deliberately not needed by Phase 2: Frigate is on a LAN `LoadBalancer` (192.168.1.248) instead, which is enough to draw zones and nothing to the outside world |
 
 ## What I'm doing instead, tonight
 

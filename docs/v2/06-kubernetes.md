@@ -39,6 +39,21 @@ annotated `kustomize.toolkit.fluxcd.io/prune: disabled`.
 Dependency order: `motion-storage` → `frigate` → `mosquitto` → `event-bridge` →
 `motion-api` → `motion-web`.
 
+**All of these files exist. Only `namespace`, `storage` and `frigate` are referenced from
+`kubernetes/apps/motion/kustomization.yaml`** — the rest wait for the phase that gives them
+an image. An unreferenced `ks.yaml` is inert; a referenced one pointing at an image nobody
+has built is a Flux Kustomization that fails forever and teaches you to ignore red.
+
+### `wait: true` on the storage Kustomization deadlocks
+
+Learned the hard way, and it looks exactly like a slow image pull for the four minutes
+before you work it out. `frigate-config` lives on `openebs-hostpath`, whose binding mode is
+`WaitForFirstConsumer`: the PVC stays `Pending` until a pod that mounts it is scheduled.
+With `wait: true`, Flux holds `motion-storage` at *Reconciliation in progress* waiting for a
+`Bound` PVC; `frigate` `dependsOn` it, so `frigate` is never applied; so no pod is ever
+scheduled; so the PVC never binds. `dependsOn` alone gives the ordering that was actually
+wanted — Kubernetes needs no help with pod-versus-PVC ordering.
+
 ## Prerequisite: the GPU. Read this before scheduling anything
 
 The 1080 Ti is **not** usable by pods today. Making it usable requires, per
@@ -79,7 +94,7 @@ At 1080p25 / 3 Mbit, one camera:
 
 | Setting | Days | Disk |
 |---|---|---|
-| Continuous recording (`record.retain`) | 3 | ~96 GB |
+| Continuous recording (`record.continuous.days`) | 3 | ~96 GB |
 | Alert recordings (`record.alerts.retain`) | 30 | ~7 GB |
 | Detection recordings (`record.detections.retain`) | 7 | ~5 GB |
 | Snapshots + previews | 30 | ~5 GB |
@@ -93,6 +108,14 @@ number.
 > and `/mnt/external3` at **98 % full**. Verify free space before committing to a number,
 > and prefer `/mnt/external4` (10 TB) or a dedicated share. A Frigate that cannot write
 > fails in ways that look like camera problems.
+
+**Done 2026-09-03, and it cost nothing.** No `/etc/exports` change was needed — the thing
+this document and the handoff both listed as a blocker requiring sudo on a box nobody had
+access to. `/mnt/external4` (10 TB, 3.9 TB free) is *already* exported to this node for the
+`media` namespace, and NFSv4 lets a client mount a **subdirectory** of an export. So the
+entire storage prerequisite was `mkdir /mnt/external4/motion`. Proven with a throwaway pod
+on `edwin-gpu` before a line of the PV was written: the mount succeeds, root's writes land
+as `1000:1000` through `all_squash`, and `df` reports the real filesystem.
 
 ```yaml
 # storage/app/nfs.yaml — same pattern as kubernetes/apps/media/storage/app/nfs.yaml
@@ -186,6 +209,40 @@ spec:
 
 `nvidia.com/gpu: 1` is a hard scheduling requirement — leave it out entirely until the
 device plugin is running, or the pod sits `Pending` forever with a message nobody reads.
+
+### Two things about Frigate's config that only the running thing will tell you
+
+Both were caught by handing the seed config to Frigate's own validator in a throwaway pod
+(`python3 -m frigate --validate-config`) before deploying anything. Do that; it costs a
+minute and it is the only source of truth for a schema this fast-moving.
+
+1. **`record.retain: {days, mode}` has not existed since 0.16.** It is `record.continuous.days`
+   now. Frigate's response to the old spelling is not to refuse — it starts in **safe mode**
+   and then prints *"Your config file is valid"* and exits 0. Read the lines above the
+   banner, not the banner.
+2. **`detect.enabled` defaults to `false`.** A camera with a detect role, a healthy stream
+   and a working detector will process every frame and look at none of them. The symptom is
+   a system that appears perfect — `camera_fps` 5.1, `skipped_fps` 0.0, the detector
+   reporting inference times — with `detection_fps: 0.0` and no events, ever, and not one
+   error anywhere.
+
+Also worth stating a `version:` in the seed. Without one, Frigate walks the file through
+every migration from 0.13 on first start, rewrites it, and leaves a `backup_config.yaml`
+beside it — harmless, but it means the file on the PVC is no longer the file in git before
+anybody has touched a zone.
+
+### In Phase 2 the LoadBalancer carries everything, not just WebRTC
+
+The section below is the Phase 4+ shape. What is deployed today is simpler and does more
+with the same object: **one `LoadBalancer` Service on `192.168.1.248`** carrying Frigate's
+UI (5000), go2rtc's MSE (1984) and WebRTC (8555 TCP *and* UDP).
+
+That is not a shortcut, it is the same reasoning applied one step earlier. Phase 2's real
+work is drawing zones and masks in Frigate's own UI, which needs a browser on the LAN — and
+a hostname on `envoy-external` would send that browser out through Cloudflare and back to
+reach the machine in the next room, while also making something publicly reachable weeks
+before anything wants to be. The hostname is Phase 4's problem; the LAN IP is what you use
+at home either way.
 
 ### WebRTC needs a real port, and only exists on the LAN
 
