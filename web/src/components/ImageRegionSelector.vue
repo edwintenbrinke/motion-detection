@@ -39,6 +39,7 @@
 </template>
 
 <script>
+import { api } from "@/api";
 import {useInitializeStore} from "@/stores/initialize.js";
 
 export default {
@@ -61,7 +62,8 @@ export default {
     this.initStore = useInitializeStore()
     this.relativePoints = this.initStore.getDetectionAreaPoints() || []
     this.maxPoints = (this.initStore.getDetectionAreaPoints() || []).length
-    this.imageUrl = this.initStore.getImageUrl();
+    // Prefer a live camera frame; fall back to the stored placeholder the v1 API wrote.
+    this.imageUrl = this.initStore.getImageUrl() ?? api.cameras.snapshotUrl('voordeur');
   },
 
   mounted() {

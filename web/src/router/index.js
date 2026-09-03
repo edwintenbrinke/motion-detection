@@ -116,7 +116,7 @@ router.beforeEach(async (to, from, next) => {
   }
 
   if (to.path === '/' && tokenValid && biometricVerified && appActive) {
-    return next({ path: authStore.takePendingRoute() ?? '/calendar', replace: true });
+    return next({ path: authStore.takePendingRoute() ?? '/events', replace: true });
   }
 
   next();

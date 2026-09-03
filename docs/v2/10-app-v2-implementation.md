@@ -315,9 +315,9 @@ project. Mirrored into [HANDOFF.md](HANDOFF.md).
 
 ## 7. Progress
 
-- [ ] 1 · Tooling
-- [ ] 2 · Session hardening
-- [ ] 3 · API layer + mock world
+- [x] 1 · Tooling
+- [x] 2 · Session hardening
+- [x] 3 · API layer + mock world
 - [ ] 4 · Shell, navigation, design tokens
 - [ ] 5 · Events feed and event detail
 - [ ] 6 · Live player and the ladder

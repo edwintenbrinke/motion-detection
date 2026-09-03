@@ -1,27 +1,27 @@
 <template>
   <div class="login-container">
     <form @submit.prevent="handleSubmit">
-      <h2>Login</h2>
+      <h2>Inloggen</h2>
 
       <div class="form-group">
-        <label for="username">Username</label>
+        <label for="username">Gebruikersnaam</label>
         <input
             type="text"
             id="username"
             v-model="username"
-            placeholder="Enter your username"
+            placeholder="Je gebruikersnaam"
             required
             ref="usernameInput"
         />
       </div>
 
       <div class="form-group">
-        <label for="password">Password</label>
+        <label for="password">Wachtwoord</label>
         <input
             type="password"
             id="password"
             v-model="password"
-            placeholder="Enter your password"
+            placeholder="Je wachtwoord"
             required
         />
       </div>
@@ -31,7 +31,7 @@
       </div>
 
       <div class="button-container">
-        <button type="submit" class="submit-button">Login</button>
+        <button type="submit" class="submit-button">Inloggen</button>
         <button
             type="button"
             @click="authenticateWithFingerprint"
@@ -47,6 +47,7 @@
 
 <script>
 import { Preferences } from '@capacitor/preferences';
+import { api } from '@/api';
 import { useInitializeStore } from '@/stores/initialize';
 import { useAuthStore } from '@/stores/authentication';
 import { BiometricAuth } from '@aparajita/capacitor-biometric-auth';
@@ -55,8 +56,8 @@ export default {
   name: 'LoginForm',
   data() {
     return {
-      username: 'admin',
-      password: 'admin',
+      username: '',
+      password: '',
       errorMessage: '',
       bioAuthAvailable: false
     };
@@ -105,17 +106,16 @@ export default {
             // Initialize app data and navigate
             const initStore = useInitializeStore();
             await initStore.getInitializingInfo(true);
-            this.$router.push('/calendar');
+            await this.goToDestination();
           } else {
-            // Token expired, show error
-            this.errorMessage = 'Your session has expired. Please log in with your credentials.';
+            this.errorMessage = 'Je sessie is verlopen. Log opnieuw in met je wachtwoord.';
           }
         } else {
-          this.errorMessage = 'Biometric authentication failed. Please try again or use credentials.';
+          this.errorMessage = 'Ontgrendelen is mislukt. Probeer het opnieuw of gebruik je wachtwoord.';
         }
       } catch (error) {
         console.error('Biometric auth error:', error);
-        this.errorMessage = 'Biometric authentication is not available. Please use your credentials.';
+        this.errorMessage = 'Ontgrendelen met vingerafdruk is niet beschikbaar. Gebruik je wachtwoord.';
       }
     },
 
@@ -123,15 +123,12 @@ export default {
       const initStore = useInitializeStore();
       try {
         this.errorMessage = '';
-        const response = await this.$api.post('/api/login', {
+        const { token, refresh_token } = await api.auth.login({
           username: this.username,
           password: this.password,
         });
 
-        // Grab the token from the response
-        const { token, refresh_token } = response.data;
-
-        // Save the token with expiry information
+        // The expiry comes from the token itself; the 60 is only a fallback.
         const authStore = useAuthStore();
         await authStore.saveAuthToken(token, refresh_token, 60);
 
@@ -145,18 +142,23 @@ export default {
           value: 'true',
         });
 
-        // Call the Pinia store function
         await initStore.getInitializingInfo(true);
-        this.$router.push('/calendar');
+        await this.goToDestination();
       } catch (error) {
-        // Handle errors
-        if (error.response && error.response.status === 401) {
-          this.errorMessage = 'Invalid username or password. Please try again.';
-        } else {
-          this.errorMessage = 'An error occurred. Please try again later.';
-        }
-        console.error('Login failed:', error.response?.data || error.message);
+        this.errorMessage = error?.status === 401
+          ? 'Onjuiste gebruikersnaam of wachtwoord.'
+          : (error?.message ?? 'Er ging iets mis. Probeer het later opnieuw.');
+        console.error('Login failed:', error?.message);
       }
+    },
+
+    /**
+     * After unlocking, go where the user was headed -- a re-lock or a notification deep
+     * link parks the route on the auth store -- and otherwise to the feed.
+     */
+    async goToDestination() {
+      const target = useAuthStore().takePendingRoute() ?? '/events';
+      await this.$router.replace(target);
     },
   },
 };
