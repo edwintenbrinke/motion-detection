@@ -144,7 +144,14 @@ class Bridge:
         for i, line in enumerate(lines):
             if not line.strip():
                 continue
-            event = json.loads(line)
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                # A line can be truncated if the process was killed mid-write. Dropping
+                # it loses one event; letting it raise would jam the whole buffer
+                # permanently, losing every event behind it too.
+                log.error("Dropping unparseable buffered line: %r", line[:200])
+                continue
             if not self.deliver(event):
                 # Keep this one and everything after it; write back and stop.
                 remaining = lines[i:]

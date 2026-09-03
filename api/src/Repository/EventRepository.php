@@ -42,13 +42,30 @@ class EventRepository extends ServiceEntityRepository
 
         if ($cursor !== null)
         {
+            // A cursor is client-supplied and may be stale, truncated or tampered with.
+            // Anything unparseable is ignored and the feed simply starts from the top --
+            // the same thing the base64/separator checks below already do. It must not
+            // become a 500: an unparseable date used to throw straight out of here.
             $decoded = base64_decode($cursor, true);
             if ($decoded !== false && str_contains($decoded, '|'))
             {
                 [$started_at, $id] = explode('|', $decoded, 2);
-                $qb->andWhere('(e.started_at < :cursor_started_at) OR (e.started_at = :cursor_started_at AND e.id < :cursor_id)')
-                    ->setParameter('cursor_started_at', new \DateTimeImmutable($started_at))
-                    ->setParameter('cursor_id', $id);
+
+                try
+                {
+                    $cursor_started_at = new \DateTimeImmutable($started_at);
+                }
+                catch (\Exception)
+                {
+                    $cursor_started_at = null;
+                }
+
+                if ($cursor_started_at !== null)
+                {
+                    $qb->andWhere('(e.started_at < :cursor_started_at) OR (e.started_at = :cursor_started_at AND e.id < :cursor_id)')
+                        ->setParameter('cursor_started_at', $cursor_started_at)
+                        ->setParameter('cursor_id', $id);
+                }
             }
         }
 
@@ -62,9 +79,20 @@ class EventRepository extends ServiceEntityRepository
         }
         if ($zones !== [])
         {
-            // e.zones is a JSON column; a simple IN() can't reach into it portably, so
-            // this filters in PHP below rather than in SQL. Fine at this table's size --
-            // revisit with a native JSON_CONTAINS/JSON_OVERLAPS if it ever isn't.
+            // Must happen in SQL, not in PHP after the query: filtering a LIMITed result
+            // set afterwards makes the caller's "did I get a full page?" check wrong and
+            // silently ends the feed while matching rows still exist further back.
+            // JSON_CONTAINS is registered in config/packages/doctrine.yaml. An event
+            // matches if it is in ANY of the requested zones, so these are OR'd.
+            $zone_conditions = [];
+            foreach (array_values($zones) as $index => $zone)
+            {
+                $zone_conditions[] = sprintf('JSON_CONTAINS(e.zones, :zone_%d) = 1', $index);
+                // The candidate must itself be valid JSON -- the string "pad" encodes to
+                // the 5 characters "pad" including the quotes.
+                $qb->setParameter(sprintf('zone_%d', $index), json_encode($zone, JSON_THROW_ON_ERROR));
+            }
+            $qb->andWhere('(' . implode(' OR ', $zone_conditions) . ')');
         }
         if ($severity !== null)
         {
@@ -73,14 +101,6 @@ class EventRepository extends ServiceEntityRepository
 
         /** @var list<Event> $results */
         $results = $qb->getQuery()->getResult();
-
-        if ($zones !== [])
-        {
-            $results = array_values(array_filter(
-                $results,
-                static fn (Event $event) => array_intersect($event->getZones(), $zones) !== []
-            ));
-        }
 
         return $results;
     }

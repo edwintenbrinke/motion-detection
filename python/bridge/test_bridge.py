@@ -82,6 +82,19 @@ class BridgeBufferingTests(unittest.TestCase):
         lines = self.config.BUFFER_PATH.read_text().splitlines()
         self.assertEqual([json.loads(l)["id"] for l in lines], ["evt-1", "evt-2"])
 
+    def test_truncated_buffer_line_does_not_jam_the_whole_buffer(self):
+        # Simulates the process being killed mid-write: a half-written line followed by
+        # a good one. The good one must still get through.
+        self.config.BUFFER_PATH.write_text('{"id": "evt-trunc", "cam\n{"id": "evt-good"}\n')
+
+        ok_response = MagicMock(status_code=200)
+        with patch.object(self.bridge.session, "post", return_value=ok_response) as post:
+            self.bridge.flush_buffer()
+
+        delivered = [call.kwargs["json"]["id"] for call in post.call_args_list]
+        self.assertEqual(delivered, ["evt-good"])
+        self.assertEqual(self.config.BUFFER_PATH.read_text(), "")
+
     def test_client_error_is_dropped_not_retried(self):
         bad_response = MagicMock(status_code=422, text="unprocessable")
         with patch.object(self.bridge.session, "post", return_value=bad_response):

@@ -122,12 +122,32 @@ class EventController extends AbstractController
     }
 
     /**
+     * Reads a repeatable query parameter as a list.
+     *
+     * Accepts both `?labels[]=person&labels[]=car` and the plain `?labels=person`.
+     * InputBag::all() throws a BadRequestException on the second form, which would turn
+     * a reasonable request into an opaque 400, so the scalar case is handled explicitly.
+     *
      * @return list<string>
      */
     private function queryArray(Request $request, string $key): array
     {
-        $value = $request->query->all($key);
-        return array_values(array_filter(array_map('strval', $value)));
+        if (!$request->query->has($key))
+        {
+            return [];
+        }
+
+        $value = $request->query->all()[$key];
+        if (!is_array($value))
+        {
+            $value = [$value];
+        }
+
+        // Drop anything that isn't a plain scalar (`?labels[][]=x` nests one level
+        // deeper) rather than letting strval() turn it into the string "Array".
+        $scalars = array_filter($value, static fn (mixed $item) => is_scalar($item));
+
+        return array_values(array_filter(array_map('strval', $scalars), static fn (string $item) => $item !== ''));
     }
 
     private function toOutputDTO(Event $event): EventOutputDTO

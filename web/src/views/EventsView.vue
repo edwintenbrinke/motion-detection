@@ -45,7 +45,7 @@
       <Button
           label="Meer laden"
           :loading="eventsStore.loading"
-          @click="eventsStore.loadMore()"
+          @click="loadMore"
       />
     </div>
   </div>
@@ -64,7 +64,13 @@ export default {
   },
   async mounted() {
     await this.refresh();
-    await this.eventsStore.refreshUnreadCount();
+    // The store rethrows so callers can react; nothing here can, and an unhandled
+    // rejection in mounted() would surface as a console error with no context.
+    try {
+      await this.eventsStore.refreshUnreadCount();
+    } catch (error) {
+      console.error('Failed to load unread count:', error);
+    }
   },
   methods: {
     async refresh() {
@@ -74,13 +80,26 @@ export default {
         console.error('Failed to load event feed:', error);
       }
     },
+    async loadMore() {
+      try {
+        await this.eventsStore.loadMore();
+      } catch (error) {
+        console.error('Failed to load more events:', error);
+      }
+    },
     async setSeverityFilter(severity) {
       this.eventsStore.setFilters({ severity });
       await this.refresh();
     },
     async openEvent(event) {
       if (!event.seen) {
-        await this.eventsStore.markSeen(event.id);
+        // Failing to mark as seen shouldn't block opening the event, so it's caught
+        // here rather than propagating out of a click handler.
+        try {
+          await this.eventsStore.markSeen(event.id);
+        } catch (error) {
+          console.error('Failed to mark event as seen:', error);
+        }
       }
       // Event detail view (player, feedback button) is a follow-up -- see
       // docs/v2/05-android-app.md#event-detail. Not built yet.

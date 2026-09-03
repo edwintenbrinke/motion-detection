@@ -81,7 +81,9 @@ class InternalEventController extends AbstractController
             return new JsonResponse(['message' => 'started_at is not a valid timestamp'], Response::HTTP_BAD_REQUEST);
         }
 
-        $label = is_array($labels) && $labels !== [] ? (string) $labels[0] : 'unknown';
+        // array_values first: a JSON object like {"1": "person"} decodes to a non-zero
+        // indexed array, where [0] would be undefined.
+        $label = is_array($labels) && $labels !== [] ? (string) array_values($labels)[0] : 'unknown';
 
         $event = $event_repository->find($id);
         if ($event === null)
@@ -98,11 +100,20 @@ class InternalEventController extends AbstractController
             $event->touch();
         }
 
-        $sub_labels = $payload['sub_labels'] ?? [];
-        $event->setSubLabel(is_array($sub_labels) && $sub_labels !== [] ? (string) $sub_labels[0] : null);
+        // Only touch a field when the payload actually carries it. The bridge always
+        // sends every key, but a later enrichment step PATCHing just a description must
+        // not blank out the zones -- see the GenAI note further down.
+        if (array_key_exists('sub_labels', $payload))
+        {
+            $sub_labels = $payload['sub_labels'];
+            $event->setSubLabel(is_array($sub_labels) && $sub_labels !== [] ? (string) array_values($sub_labels)[0] : null);
+        }
 
-        $zones = $payload['zones'] ?? [];
-        $event->setZones(is_array($zones) ? array_values(array_map('strval', $zones)) : []);
+        if (array_key_exists('zones', $payload))
+        {
+            $zones = $payload['zones'];
+            $event->setZones(is_array($zones) ? array_values(array_map('strval', $zones)) : []);
+        }
 
         if (isset($payload['top_score']) && is_numeric($payload['top_score']))
         {
@@ -145,17 +156,36 @@ class InternalEventController extends AbstractController
         return new JsonResponse(['message' => 'Event accepted', 'id' => $event->getId()]);
     }
 
+    /**
+     * Parses a Frigate timestamp (a Unix epoch, or an ISO-8601 string) and normalises it
+     * to PHP's default timezone.
+     *
+     * That last step is not cosmetic. Doctrine's `datetime_immutable` type writes a NAIVE
+     * datetime -- it formats the object in whatever timezone that object happens to carry
+     * -- and on read it re-interprets that naive value in PHP's default timezone. So a
+     * value parsed as "2026-09-02T20:00:00+00:00" is stored as "2026-09-02 20:00:00" and
+     * read back as 20:00 Europe/Amsterdam, i.e. two hours earlier than the instant that
+     * came in. Converting to the default timezone first makes the round-trip lossless,
+     * and matches how the rest of this codebase creates timestamps (`new
+     * \DateTimeImmutable()`, which is already in the default timezone).
+     *
+     * The epoch path was always correct for the same reason -- setTimestamp() on a
+     * default-timezone object yields a default-timezone object -- but it goes through the
+     * same normalisation so there is only one rule to remember.
+     */
     private function toDateTimeImmutable(mixed $value): ?\DateTimeImmutable
     {
+        $timezone = new \DateTimeZone(date_default_timezone_get());
+
         try
         {
             if (is_numeric($value))
             {
-                return (new \DateTimeImmutable())->setTimestamp((int) $value);
+                return (new \DateTimeImmutable())->setTimestamp((int) $value)->setTimezone($timezone);
             }
             if (is_string($value))
             {
-                return new \DateTimeImmutable($value);
+                return (new \DateTimeImmutable($value))->setTimezone($timezone);
             }
         }
         catch (\Exception)
