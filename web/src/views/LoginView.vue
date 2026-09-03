@@ -50,6 +50,7 @@ import { Preferences } from '@capacitor/preferences';
 import { api } from '@/api';
 import { useInitializeStore } from '@/stores/initialize';
 import { useAuthStore } from '@/stores/authentication';
+import { usePushStore } from '@/stores/push';
 import { BiometricAuth } from '@aparajita/capacitor-biometric-auth';
 
 export default {
@@ -157,6 +158,10 @@ export default {
      * link parks the route on the auth store -- and otherwise to the feed.
      */
     async goToDestination() {
+      // Registering after login rather than at boot: the device registration is
+      // authenticated, so there is no point asking for a token nobody can store yet.
+      usePushStore().ensureRegistered().catch(() => {});
+
       const target = useAuthStore().takePendingRoute() ?? '/events';
       await this.$router.replace(target);
     },

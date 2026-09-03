@@ -6,12 +6,18 @@ import { Capacitor } from '@capacitor/core';
 import { useAuthStore } from '@/stores/authentication';
 import { useAppLifecycle } from '@/composables/useAppLifecycle.js';
 import { runColdStart } from '@/lib/coldStart.js';
+import { createPushService } from '@/lib/push/pushService.js';
 
 const router = useRouter();
 const authStore = useAuthStore();
 
 // A fresh launch always lands on the login screen, even with a valid token.
 runColdStart();
+
+// Deep links and push listeners are registered once, at boot, rather than by whichever
+// screen happens to be mounted -- a notification tapped from a killed app arrives before
+// any view exists.
+createPushService({ router }).install();
 
 if (Capacitor.isNativePlatform?.()) {
   CapacitorApp.addListener('appTerminated', async () => {

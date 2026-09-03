@@ -3,6 +3,10 @@ node_modules
 /dist
 /android
 
+# Firebase credentials -- SOPS or the CI secret store, never git.
+# (android/ is ignored above; this is belt and braces if that ever changes.)
+google-services.json
+
 # local env files
 .env.local
 .env.*.local
