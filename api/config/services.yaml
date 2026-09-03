@@ -20,6 +20,13 @@ services:
             string $bridge_secret: '%env(resolve:BRIDGE_SECRET)%'
             # MediaTokenService -- see docs/v2/07-api-and-data-model.md#media-tokens
             string $signing_key: '%env(resolve:MEDIA_SIGNING_KEY)%'
+            # FrigateClient. In-cluster Service name; Frigate has no route out of the
+            # cluster and is not supposed to get one.
+            string $frigate_base_url: '%env(resolve:FRIGATE_BASE_URL)%'
+            # The LAN address of go2rtc for the WebRTC rung, which cannot traverse the
+            # Cloudflare Tunnel (adr/0004). Empty means "do not offer that rung at all",
+            # which is better than offering one that always times out.
+            string $webrtc_lan_url: '%env(resolve:WEBRTC_LAN_URL)%'
 
             # Automatically inject the conversion logger into any service requiring it
 #            LoggerInterface $conversion_logger: '@monolog.logger.conversion_logger'  # Bind conversion_logger

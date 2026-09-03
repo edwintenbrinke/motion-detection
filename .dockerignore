@@ -1,0 +1,14 @@
+**/node_modules
+**/vendor
+**/var/cache
+**/var/log
+web/dist
+web/android
+api/private/UnprocessedRecordings
+api/public/recordings
+python/recordings
+python/legacy
+.git
+.idea
+docs
+*.h264

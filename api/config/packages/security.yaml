@@ -53,4 +53,11 @@ security:
         # equivalent to unauthenticated -- do not add another route under this prefix
         # without the same explicit secret check. See docs/v2/07-api-and-data-model.md#internal.
         - { path: ^/api/internal, roles: PUBLIC_ACCESS }
+        # Signed media URLs are their own credential: <img>, <video> and Android's
+        # notification-image fetcher cannot send an Authorization header, so the HMAC in
+        # the query string is what authenticates them. MediaController verifies every one
+        # of these before returning a single byte -- PUBLIC_ACCESS here means "no JWT
+        # required", not "unauthenticated". Do not add a route under /api/media that does
+        # not call MediaTokenService::verify(). See docs/v2/07-api-and-data-model.md#media-tokens.
+        - { path: ^/api/media, roles: PUBLIC_ACCESS }
         - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }

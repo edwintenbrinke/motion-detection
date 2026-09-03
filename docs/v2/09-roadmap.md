@@ -64,15 +64,14 @@ running; `python/deploy/` holds the config, unit, installer and a soak logger.
 |---|---|
 | Correctly-oriented 1080p25 | ✅ 1920×1080, 25.00 fps, 3.00 Mbit, keyframe every 25 frames, upright |
 | Load average < 2.0 | ✅ 0.7–0.8. The encoder takes ~65 % of *one* core, not half the box |
-| `get_throttled` = `0x0` | ❌ `0xe0006` — **no active cooler is fitted**. 83–86 °C streaming, 63.7 °C idle |
+| `get_throttled` = `0x0` | ✅ **solved by cooling, later the same day.** Was `0xe0006` at 83–86 °C; now a steady **42.8–45.5 °C** across four hours of soak log with no current-throttle bits. The remaining `0xe0000` are the since-boot flags from before and clear on the next reboot. Note the Pi still registers no fan in `hwmon` and no cooling device, so whatever was fitted is passive or unmanaged — it works, and nothing in software knows about it |
 | Stable for 24 h | ⏳ soaking; `/var/log/mediamtx-soak.log` samples every 5 minutes |
 | Reboot brings it back | ✅ rebooted 18:43, SSH back in 55 s, MediaMTX up and the path `ready` at 18:45:12 with nobody touching it; stream re-probed at 24.97 fps / 3.00 Mbit |
 
-The throttling is not costing frames today — the numbers above were measured with the
-throttle bits already set — but it is the one number the phase asks for and it is a €5 part.
-The reboot settled the question of whether it was leftover state: the throttle bits were
-back within a minute of the encoder starting on a cold-booted board. Fit the cooler, then
-let the soak log run a day. Phase 2 does not depend on either.
+The throttling never cost frames — the numbers above were measured with the throttle bits
+already set — but it was the one number the phase asked for. The soak log caught the fix
+landing: 86 °C at 20:26, 43 °C from 20:42 onward and flat ever since, which is exactly the
+claim that log was installed to be able to make.
 
 ---
 

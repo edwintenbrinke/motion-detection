@@ -1,0 +1,138 @@
+# motion-api: Symfony on php-fpm, plus the two proxies that make "media only through the
+# application" true rather than aspirational.
+#
+# The division of labour is deliberate: PHP decides *whether* you may have the bytes,
+# nginx moves them. A 40 MB clip never enters a PHP worker, and Range requests survive,
+# which is the difference between seeking in the player and re-downloading the clip.
+
+resolver ${DNS_RESOLVER} valid=30s ipv6=off;
+
+server {
+    listen 8080 default_server;
+    server_name _;
+    root /var/www/symfony/public;
+
+    # Clips are large and slow; the defaults are for HTML.
+    client_max_body_size 16m;
+    proxy_read_timeout 300s;
+    proxy_send_timeout 300s;
+
+    # This runs behind envoy behind Cloudflare. Trust the forwarded scheme so Symfony
+    # generates https URLs and the JWT cookie keeps its Secure flag.
+    real_ip_header X-Forwarded-For;
+    set_real_ip_from 0.0.0.0/0;
+
+    access_log /dev/stdout;
+    error_log /dev/stderr warn;
+
+    location / {
+        try_files $uri /index.php$is_args$args;
+    }
+
+    location ~ ^/index\.php(/|$) {
+        fastcgi_pass 127.0.0.1:9000;
+        fastcgi_split_path_info ^(.+\.php)(/.*)$;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        fastcgi_param DOCUMENT_ROOT $realpath_root;
+        fastcgi_param HTTPS $http_x_forwarded_proto;
+        fastcgi_buffers 16 32k;
+        fastcgi_buffer_size 64k;
+        fastcgi_read_timeout 120s;
+        internal;
+    }
+
+    # Nothing else under public/ is executable. Without this a stray .php upload would be.
+    location ~ \.php$ {
+        return 404;
+    }
+
+    # ---------------------------------------------------------------------------------
+    # Internal only. PHP reaches this by returning `X-Accel-Redirect: /_frigate/...` after
+    # it has verified a signed media URL. Not routable from outside: nginx refuses an
+    # `internal` location as an external request, so the only way in is through a
+    # controller that checked the signature first.
+    # ---------------------------------------------------------------------------------
+    # A regex location with a capture, not `location /_frigate/`. When proxy_pass contains
+    # a variable, nginx stops doing the location-prefix replacement and sends the literal
+    # URI written after the host -- so `proxy_pass http://$upstream/` fetches exactly "/"
+    # and every clip and thumbnail comes back as Frigate's own homepage, with a 200.
+    location ~ ^/_frigate/(?<frigate_path>.*)$ {
+        internal;
+        set $frigate_upstream ${FRIGATE_HOST};
+        proxy_pass http://$frigate_upstream/$frigate_path$is_args$args;
+        proxy_set_header Host $frigate_upstream;
+        # Range is forwarded and nothing is buffered, so whatever the upstream supports
+        # reaches the client unchanged. Measured caveat: Frigate answers 200 to a ranged
+        # GET on /api/events/<id>/clip.mp4, so seeking inside an event clip re-downloads
+        # it. Event clips are a megabyte or two, so this is currently free; scrubbing a
+        # whole recording is a different endpoint (/vod/, HLS) and a different feature.
+        proxy_set_header Range $http_range;
+        proxy_set_header If-Range $http_if_range;
+        proxy_http_version 1.1;
+        # Frigate must never be able to set these on a response the app trusts.
+        proxy_hide_header Set-Cookie;
+        proxy_hide_header X-Accel-Redirect;
+        proxy_buffering off;
+    }
+
+    # ---------------------------------------------------------------------------------
+    # Live view. go2rtc speaks MSE over a WebSocket, LL-HLS, and single frames; all three
+    # are proxied here so the app has one origin and Frigate needs no route of its own.
+    #
+    # auth_request is how a signed URL gates a WebSocket: nginx cannot compute an HMAC, so
+    # it asks PHP, and only on 204 does the upgrade reach go2rtc.
+    # ---------------------------------------------------------------------------------
+    location ~ ^/live/(?<live_path>.*)$ {
+        auth_request /_live_auth;
+
+        # Same capture-and-forward as above, for the same reason.
+        set $go2rtc_upstream ${GO2RTC_HOST};
+        proxy_pass http://$go2rtc_upstream/$live_path$is_args$args;
+        proxy_set_header Host $go2rtc_upstream;
+
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+
+        # A live stream that nginx buffers is not live, and a WebSocket that times out
+        # after 60 s is a live view that dies while you watch it.
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    location = /_live_auth {
+        internal;
+        fastcgi_pass 127.0.0.1:9000;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME /var/www/symfony/public/index.php;
+        fastcgi_param SCRIPT_NAME /index.php;
+        fastcgi_param DOCUMENT_URI /index.php;
+        fastcgi_param REQUEST_URI /api/media/_live-auth;
+        fastcgi_param QUERY_STRING "";
+        fastcgi_param REQUEST_METHOD GET;
+        # The whole original request line, for PHP to pull ?src, ?exp and ?sig out of.
+        #
+        # `$args` does NOT work here: an auth_request subrequest has its own argument
+        # list, and /_live_auth carries none -- so PHP saw an empty query, decided the
+        # signature was missing, and returned 403 for perfectly valid links. `$request_uri`
+        # inside an auth location is the *original* URI, which is the documented pattern in
+        # nginx's own auth_request example (X-Original-URI).
+        fastcgi_param HTTP_X_ORIGINAL_URI $request_uri;
+        # The session cookie is the other accepted credential -- go2rtc's HLS playlist
+        # points at its segments relatively, so those follow-up requests carry no
+        # signature and only the cookie can vouch for them.
+        fastcgi_param HTTP_COOKIE $http_cookie;
+        # Only the status code is read; sending the body would just cost memory.
+        fastcgi_pass_request_body off;
+        fastcgi_param CONTENT_LENGTH "";
+    }
+
+    location = /healthz {
+        access_log off;
+        return 200 "ok\n";
+        add_header Content-Type text/plain;
+    }
+}

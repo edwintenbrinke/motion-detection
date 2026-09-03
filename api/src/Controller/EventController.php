@@ -8,6 +8,7 @@ use App\DTO\Event\EventFeedbackInputDTO;
 use App\DTO\Event\EventOutputDTO;
 use App\Entity\Event;
 use App\Repository\EventRepository;
+use App\Service\MediaUrlBuilder;
 use App\Trait\ValidationTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use OpenApi\Attributes as OA;
@@ -27,6 +28,10 @@ use Symfony\Component\Routing\Attribute\Route;
 class EventController extends AbstractController
 {
     use ValidationTrait;
+
+    public function __construct(private readonly MediaUrlBuilder $media_url_builder)
+    {
+    }
 
     #[OA\Get(
         summary: 'Cursor-paginated event feed, newest first',
@@ -57,8 +62,10 @@ class EventController extends AbstractController
             $next_cursor = base64_encode($last->getStartedAt()->format(\DateTimeInterface::ATOM) . '|' . $last->getId());
         }
 
+        $now = time();
+
         return $this->json([
-            'events' => array_map($this->toOutputDTO(...), $events),
+            'events' => array_map(fn (Event $event) => $this->toOutputDTO($event, $now), $events),
             'next_cursor' => $next_cursor,
         ]);
     }
@@ -150,7 +157,12 @@ class EventController extends AbstractController
         return array_values(array_filter(array_map('strval', $scalars), static fn (string $item) => $item !== ''));
     }
 
-    private function toOutputDTO(Event $event): EventOutputDTO
+    /**
+     * @param int|null $now Passed through so every event in one page is signed against the
+     *                      same instant: a feed whose rows expire at slightly different
+     *                      times refreshes in a trickle instead of once.
+     */
+    private function toOutputDTO(Event $event, ?int $now = null): EventOutputDTO
     {
         return new EventOutputDTO(
             id: $event->getId(),
@@ -169,6 +181,7 @@ class EventController extends AbstractController
             description: $event->getDescription(),
             genai_severity: $event->getGenaiSeverity(),
             seen: $event->isSeen(),
+            media: $this->media_url_builder->forEvent($event, $now),
         );
     }
 }

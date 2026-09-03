@@ -24,8 +24,19 @@ class EventOutputDTO
     public bool $seen;
 
     /**
+     * Signed, short-lived URLs for the three things the app renders. Inline rather than a
+     * separate call because the feed binds a thumbnail for every row, and one round trip
+     * per row is a feed that scrolls badly. All three expire together -- see
+     * MediaUrlBuilder and web/src/api/contract.js#isMediaStale.
+     *
+     * @var array{thumbnail: ?string, snapshot: ?string, clip: ?string, expires_at: ?string}
+     */
+    public array $media;
+
+    /**
      * @param list<string> $zones
      * @param list<string> $derived_tags
+     * @param array{thumbnail: ?string, snapshot: ?string, clip: ?string, expires_at: ?string} $media
      */
     public function __construct(
         string $id,
@@ -44,6 +55,7 @@ class EventOutputDTO
         ?string $description,
         ?string $genai_severity,
         bool $seen,
+        array $media,
     ) {
         $this->id = $id;
         $this->camera = $camera;
@@ -61,5 +73,6 @@ class EventOutputDTO
         $this->description = $description;
         $this->genai_severity = $genai_severity;
         $this->seen = $seen;
+        $this->media = $media;
     }
 }

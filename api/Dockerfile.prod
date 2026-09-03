@@ -1,0 +1,85 @@
+# motion-api production image: nginx + php-fpm in one container.
+#
+# Two processes in one container is usually the wrong shape, and here it is the right one:
+# nginx serves the bytes that PHP authorises (X-Accel-Redirect), so they have to share a
+# filesystem and a loopback. Splitting them into a sidecar pair would mean shipping the
+# whole public/ tree twice and an init container to copy it between them.
+#
+# Build from the REPOSITORY ROOT, because the nginx config is shared with motion-web:
+#     docker build -f api/Dockerfile.prod -t motion-api .
+
+# ---- deps -------------------------------------------------------------------------------
+# Resolved on php:8.4, not on the `composer:2` image. That image ships PHP 8.5, and this
+# lockfile pins lcobucci/clock at ~8.4 -- so composer refuses the lock file rather than
+# installing something subtly different from what runs in production.
+FROM php:8.4-cli-bookworm AS vendor
+RUN apt-get update && apt-get install -y --no-install-recommends git unzip libzip-dev libicu-dev \
+    && docker-php-ext-install -j"$(nproc)" zip intl \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+WORKDIR /app
+COPY api/composer.json api/composer.lock api/symfony.lock ./
+# No scripts, no autoloader: the source is not here yet, so anything reading it would
+# either fail or quietly cache an empty classmap.
+RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist --no-interaction
+
+# ---- runtime ----------------------------------------------------------------------------
+FROM php:8.4-fpm-bookworm AS runtime
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        nginx gettext-base libzip-dev libicu-dev unzip \
+    && docker-php-ext-install -j"$(nproc)" pdo pdo_mysql zip intl opcache \
+    && rm -rf /var/lib/apt/lists/* /etc/nginx/sites-enabled/default
+
+# Production opcache. The defaults are tuned for a machine where the code changes.
+RUN { \
+        echo 'opcache.enable=1'; \
+        echo 'opcache.validate_timestamps=0'; \
+        echo 'opcache.max_accelerated_files=20000'; \
+        echo 'opcache.memory_consumption=192'; \
+        echo 'opcache.interned_strings_buffer=16'; \
+        echo 'realpath_cache_size=4096K'; \
+        echo 'realpath_cache_ttl=600'; \
+        echo 'expose_php=Off'; \
+        echo 'memory_limit=256M'; \
+    } > /usr/local/etc/php/conf.d/zz-motion.ini
+
+# php-fpm on loopback; logs to the container's stderr so `kubectl logs` shows something.
+RUN { \
+        echo '[global]'; \
+        echo 'error_log = /proc/self/fd/2'; \
+        echo 'daemonize = no'; \
+        echo '[www]'; \
+        echo 'listen = 127.0.0.1:9000'; \
+        echo 'access.log = /proc/self/fd/2'; \
+        echo 'catch_workers_output = yes'; \
+        echo 'decorate_workers_output = no'; \
+        echo 'clear_env = no'; \
+        echo 'pm = dynamic'; \
+        echo 'pm.max_children = 20'; \
+        echo 'pm.start_servers = 4'; \
+        echo 'pm.min_spare_servers = 2'; \
+        echo 'pm.max_spare_servers = 6'; \
+    } > /usr/local/etc/php-fpm.d/zz-motion.conf
+
+WORKDIR /var/www/symfony
+
+COPY --from=vendor /app/vendor ./vendor
+COPY api/ ./
+COPY docker/prod/nginx-api.conf.template /etc/nginx/templates/motion-api.conf.template
+COPY docker/prod/entrypoint-api.sh /usr/local/bin/entrypoint
+
+ENV APP_ENV=prod APP_DEBUG=0
+RUN composer_bin=$(command -v composer || echo /usr/bin/composer); \
+    rm -rf var/cache var/log private/UnprocessedRecordings/* public/recordings/* 2>/dev/null || true; \
+    mkdir -p var/cache var/log \
+    && chown -R www-data:www-data var \
+    && chmod +x /usr/local/bin/entrypoint
+
+# Autoload map is built from the copied source, not from the deps stage.
+COPY --from=vendor /usr/bin/composer /usr/bin/composer
+RUN composer dump-autoload --no-dev --classmap-authoritative --no-interaction \
+    && rm -f /usr/bin/composer && rm -rf /root/.composer
+
+EXPOSE 8080
+ENTRYPOINT ["/usr/local/bin/entrypoint"]
