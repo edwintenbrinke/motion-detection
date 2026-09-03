@@ -65,6 +65,26 @@ Everything that's pure repo work with no real-world side effect until someone ap
   assumed. Not built: the event detail view (player, feedback button) and real
   thumbnails, which need `MediaTokenService` exposed by an endpoint first.
 
+## Second review pass (2026-09-03)
+
+Re-reviewed the previous night's code rather than trusting it. **Five real defects**, all
+reproduced before fixing and re-verified after:
+
+| # | Defect | Impact |
+|---|---|---|
+| 1 | Doctrine stores naive datetimes; ISO timestamps with an offset were shifted by the UTC offset | **Data corruption** — every event two hours off. Visible in the earlier test output and missed |
+| 2 | Zone filter ran in PHP after SQL's `LIMIT`, so pagination stopped early | Feed silently truncated — 1 of 10 matching events returned |
+| 3 | Tampered/stale cursor threw out of the repository | HTTP 500 on client-supplied input |
+| 4 | `?zones=pad` without `[]` | HTTP 400 on a reasonable request |
+| 5 | Partial enrichment payload overwrote `zones`/`sub_label` | The GenAI step this endpoint exists to accept would have wiped them |
+
+Plus one hardening fix: a truncated line in event-bridge's replay buffer (process killed
+mid-write) permanently jammed the buffer, losing every event behind it.
+
+Worth noting for next time: all five got past a green smoke test. Single-row happy-path
+checks confirmed the code *ran*; they could not show that pagination truncates or that a
+timezone shifted. The regression suite now covers each of them explicitly.
+
 ## A decision I did not make for you
 
 **Adding PHPUnit to `api/` hit a real dependency conflict** (`phpunit/phpunit` wants
