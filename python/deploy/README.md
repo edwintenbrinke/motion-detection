@@ -7,8 +7,9 @@ once this is in place — no Python, no Flask, no upload logic. See
 CPU budget in mind).
 
 **Status: installed and running since 2026-09-03.** 1080p25 at 3.00 Mbit, keyframe every
-second, upright. One thing is still open — the Pi has no active cooler and is thermally
-throttled. See [Heat](#heat) below.
+second, upright, and it comes back on its own after a reboot (55 s to SSH, path `ready` a
+few seconds later, untouched). One thing is still open — the Pi has no active cooler and is
+thermally throttled. See [Heat](#heat) below.
 
 ## Files
 
@@ -72,7 +73,8 @@ streaming and idles at 63.7 °C, because **no active cooler is fitted** — ther
 
 It is not dropping frames today; 25.00 fps and 3.00 Mbit were measured with the throttle
 bits already set, because the encoder only needs about two thirds of one core. What is gone
-is the margin. Fit the cooler.
+is the margin. A reboot ruled out leftover state — the bits were back within a minute of the
+encoder starting on a cold board. Fit the cooler.
 
 ## Security
 

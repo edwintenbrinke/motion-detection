@@ -66,11 +66,13 @@ running; `python/deploy/` holds the config, unit, installer and a soak logger.
 | Load average < 2.0 | ✅ 0.7–0.8. The encoder takes ~65 % of *one* core, not half the box |
 | `get_throttled` = `0x0` | ❌ `0xe0006` — **no active cooler is fitted**. 83–86 °C streaming, 63.7 °C idle |
 | Stable for 24 h | ⏳ soaking; `/var/log/mediamtx-soak.log` samples every 5 minutes |
-| Reboot brings it back | ⏳ unit is enabled, not yet proven by an actual reboot |
+| Reboot brings it back | ✅ rebooted 18:43, SSH back in 55 s, MediaMTX up and the path `ready` at 18:45:12 with nobody touching it; stream re-probed at 24.97 fps / 3.00 Mbit |
 
 The throttling is not costing frames today — the numbers above were measured with the
 throttle bits already set — but it is the one number the phase asks for and it is a €5 part.
-Fit the cooler, then let the soak log run a day. Phase 2 does not depend on either.
+The reboot settled the question of whether it was leftover state: the throttle bits were
+back within a minute of the encoder starting on a cold-booted board. Fit the cooler, then
+let the soak log run a day. Phase 2 does not depend on either.
 
 ---
 
