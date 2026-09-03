@@ -5,8 +5,8 @@
 exists so the work can be picked up by a fresh session — or a different model — without
 re-deriving any of it.
 
-**Status:** in progress. The checklist in [§7](#7-progress) is the source of truth for what
-is done; update it as each step lands.
+**Status:** all ten steps landed. The app runs end to end on the mock adapter; what remains
+is an Android build and a backend that serves [§6](#6-what-the-backend-still-owes-the-app).
 
 ## 1. The constraint that shapes this plan
 
@@ -324,4 +324,4 @@ project. Mirrored into [HANDOFF.md](HANDOFF.md).
 - [x] 7 · Timeline
 - [x] 8 · Settings
 - [x] 9 · Push and deep links
-- [ ] 10 · Docs
+- [x] 10 · Docs

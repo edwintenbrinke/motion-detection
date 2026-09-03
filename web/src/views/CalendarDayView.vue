@@ -15,7 +15,7 @@
       <Button icon="pi pi-chevron-left" @click="changeDate(-1)">
         <i class="pi pi-chevron-left"></i>
       </Button>
-      <h2 class="date-display">{{ currentDate.format("MMMM D, YYYY") }}</h2>
+      <h2 class="date-display">{{ currentDate.format("D MMMM YYYY") }}</h2>
       <Button icon="pi pi-chevron-right" @click="changeDate(1)">
         <i class="pi pi-chevron-right"></i>
       </Button>
@@ -105,14 +105,14 @@
       <template #header>
         <div class="dialog-header">
           <span v-if="selectedVideoData" class="video-metadata">
-            {{ dayjs(selectedVideoData.created_at).format("MMM D, YYYY • HH:mm:ss") }} •
+            {{ dayjs(selectedVideoData.created_at).format("D MMM YYYY • HH:mm:ss") }} •
             {{ formatVideoDuration(selectedVideoData.video_duration) }}
           </span>
         </div>
       </template>
 
       <div class="video-container">
-        <SingleVideoPlayer
+        <ArchiveVideoPlayer
             v-if="videoDialogVisible && selectedVideoUrl"
             :videoUrl="selectedVideoUrl"
         />
@@ -124,12 +124,12 @@
 <script>
 import {defineComponent} from "vue";
 import {useRoute, useRouter} from "vue-router";
-import dayjs from "dayjs";
-import SingleVideoPlayer from "@/components/VideoPlayer.vue";
+import { dayjs } from '@/lib/datetime.js';
+import ArchiveVideoPlayer from "@/components/player/ArchiveVideoPlayer.vue";
 import {useVideoStore} from "@/stores/video";
 
 export default defineComponent({
-  components: {SingleVideoPlayer},
+  components: {ArchiveVideoPlayer},
   setup() {
     const route = useRoute();
     const router = useRouter();

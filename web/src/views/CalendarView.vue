@@ -3,6 +3,7 @@ import { defineComponent } from "vue";
 import FullCalendar from "@fullcalendar/vue3";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
+import nlLocale from "@fullcalendar/core/locales/nl";
 import { useRouter } from 'vue-router';
 
 export default defineComponent({
@@ -25,6 +26,8 @@ export default defineComponent({
           center: "title",
           right: "",
         },
+        // The rest of the app is Dutch; FullCalendar defaults to English.
+        locale: nlLocale,
         initialView: "dayGridMonth",
         editable: false,
         selectable: false,

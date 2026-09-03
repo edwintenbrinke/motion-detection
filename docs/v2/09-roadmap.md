@@ -109,9 +109,17 @@ expected to connect off the LAN), and the same hostname works unchanged at home 
 
 ---
 
-## Phase 5 — App v2 · 4–6 evenings
+## Phase 5 — App v2 · built, pending a device
 
-Per [05-android-app.md](05-android-app.md). The longest phase and the most visible.
+Per [05-android-app.md](05-android-app.md), built per
+[10-app-v2-implementation.md](10-app-v2-implementation.md). The longest phase and the most
+visible.
+
+**Status:** the app is written and runs end to end against a mock adapter
+(`npm run dev:mock`) — feed, event detail, live ladder, timeline, settings, push and deep
+links. What is left is the half that needs hardware and a backend: an Android build, and
+re-pointing `VITE_API_MODE` at a motion-api that serves the endpoints in
+[HANDOFF](HANDOFF.md) § "App v2 needs these from motion-api".
 
 Order that keeps it useful throughout: API client layer → events feed → event detail with
 playback → WebRTC live → timeline scrubber → zone editor. The feed alone is already better

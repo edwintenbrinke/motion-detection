@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import dayjs from 'dayjs';
+import { dayjs } from '@/lib/datetime.js';
 
 const getDefaultState = () => ({
     hourlyVideosByDate: {}, // Stores hourly data in format: {YYYY-MM-DD: {hour: videos[]}}

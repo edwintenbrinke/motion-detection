@@ -2,8 +2,8 @@
   <div class="video-player-container">
     <div v-if="!isLoading && error" class="error-message">
       <i class="pi pi-exclamation-triangle error-icon"></i>
-      <p>Failed to load video</p>
-      <Button label="Try Again" @click="loadVideo" class="p-button-sm" />
+      <p>Video laden lukt niet</p>
+      <Button label="Opnieuw" @click="loadVideo" class="p-button-sm" />
     </div>
     <div v-if="!isLoading && !error" class="video-wrapper">
       <video
@@ -24,8 +24,19 @@
 </template>
 
 <script>
+/**
+ * The v1 archive player.
+ *
+ * Downloads the whole clip through axios as a blob before playing, because the archive
+ * endpoint (GET /api/video/stream/{filename}) is JWT-protected and a bearer token cannot
+ * ride on <video src>. That is the workaround the new player got rid of -- but only because
+ * signed media URLs exist for Frigate clips, and they do not exist for these files.
+ *
+ * The archive is frozen (docs/v2/07-api-and-data-model.md): read path kept, write path
+ * stopped, both deleted when the old clips stop mattering. So is this component.
+ */
 export default {
-  name: 'SingleVideoPlayer',
+  name: 'ArchiveVideoPlayer',
   props: {
     videoUrl: {
       type: String,

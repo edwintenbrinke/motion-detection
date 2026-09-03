@@ -13,6 +13,7 @@ Running list. Anything here I skip and log, rather than guess or work around. Ev
 | 2 | ⬜ `MEDIA_SIGNING_KEY` secret | Fine for me to generate, but it needs to go into SOPS which needs your `age.key` | I'll generate the value and leave it in `docs/v2/HANDOFF.md` § secrets below, or a local file — you run `sops -e` |
 | 3 | ⬜ Frigate/Mosquitto SOPS secrets | Same — needs `age.key` from `homelab-cluster/age.key` | Same as above |
 | 4 | ⬜ NFS export on edwin-server | Needs sudo on `edwin-server` (192.168.1.253), a box I have no access to | Run the `/etc/exports` change in `docs/v2/06-kubernetes.md` yourself, or tell me if I should have SSH access to it too |
+| 5 | ⬜ Android build of the new app | Needs Android Studio and a device; I can build the web bundle but not the APK | `cd web && npm install && npm run cap:sync && npx cap open android`. The sync script patches the native project for deep links and push. Drop `google-services.json` into `web/android/app/` first if you want push to work; without it the app still runs and says so in Settings → Account |
 
 ## Needs a deliberate, awake decision from you (not a credentials problem)
 
@@ -22,17 +23,17 @@ irreversible thing":
 
 | # | What | Why it waits for you |
 |---|---|---|
-| 5 | 🔶 Start MediaMTX on the Pi | `python/deploy/install.sh` is ready — installs and enables the service but does not start it. Nothing is currently running on the Pi (confirmed by you), so there's no conflicting process to stop this time; still flagging it since it's the first thing that actually runs on real hardware. Run it with `ssh rpi` + `./install.sh`, or tell me to go ahead |
-| 6 | ⬜ Pushing `kubernetes/apps/motion/*` to `homelab-cluster` main | Flux auto-applies on push. I'll build it on a branch and open it for your review first — not merge it myself |
-| 7 | ⬜ GPU node re-provisioning (Phase 3) | Takes down `space-crucible-prod`. Explicitly scheduled as its own maintenance window in the roadmap, not attempted here regardless of time available |
-| 8 | ⬜ Creating the `motion.edwintenbrinke.nl` DNS/HTTPRoute | Cheap and safe, but it's the first real "this is now reachable" step — flagging it rather than silently making something newly reachable while you're asleep |
+| 6 | 🔶 Start MediaMTX on the Pi | `python/deploy/install.sh` is ready — installs and enables the service but does not start it. Nothing is currently running on the Pi (confirmed by you), so there's no conflicting process to stop this time; still flagging it since it's the first thing that actually runs on real hardware. Run it with `ssh rpi` + `./install.sh`, or tell me to go ahead |
+| 7 | ⬜ Pushing `kubernetes/apps/motion/*` to `homelab-cluster` main | Flux auto-applies on push. I'll build it on a branch and open it for your review first — not merge it myself |
+| 8 | ⬜ GPU node re-provisioning (Phase 3) | Takes down `space-crucible-prod`. Explicitly scheduled as its own maintenance window in the roadmap, not attempted here regardless of time available |
+| 9 | ⬜ Creating the `motion.edwintenbrinke.nl` DNS/HTTPRoute | Cheap and safe, but it's the first real "this is now reachable" step — flagging it rather than silently making something newly reachable while you're asleep |
 
 ## What I'm doing instead, tonight
 
 Everything that's pure repo work with no real-world side effect until someone applies it:
 
 - ✅ Pi-side: MediaMTX config, systemd unit, install script, README (files only — not run
-  on the actual Pi; that is item 5 above)
+  on the actual Pi; that is item 6 above)
 - ✅ Legacy Python agent moved to `python/legacy/`, Dockerfile/compose updated to match
 - ✅ `event-bridge`: MQTT→HTTP service with buffering/replay, unit-tested (7/7 passing,
   no MQTT broker or live API needed — see `python/bridge/README.md`), fixtures for manual
@@ -57,10 +58,23 @@ Everything that's pure repo work with no real-world side effect until someone ap
   `api/bin/verify-notification-matcher.php` (12 checks, including the midnight-wrap
   time window). **Not yet wired into anything** — nothing calls it from the ingest
   path, and there's no endpoint to manage rules from the app yet.
-- 🔶 App v2 (in progress): being rebuilt events-first against a mock adapter so it is
-  reviewable without the cluster. Plan and progress checklist in
-  [10-app-v2-implementation.md](10-app-v2-implementation.md); the API contracts it needs are
-  in § "App v2 needs these from motion-api" below.
+- ✅ **App v2 built** (steps 1-10 of
+  [10-app-v2-implementation.md](10-app-v2-implementation.md)). Events-first: feed, event
+  detail with a real player, live view with the fallback ladder, timeline scrubber, four
+  settings screens, push and deep links. Runs today with **no backend at all** via
+  `npm run dev:mock`, and re-points at motion-api by changing one env var.
+
+  Verified by running it, not by assuming: every screen was driven in a 375x812 browser and
+  the awkward paths were exercised deliberately — the live ladder descending rung by rung,
+  a signed URL expiring mid-scroll, the network dropping with content on screen, a deep link
+  arriving while the app is locked. 167 unit tests, clean `npm run build`.
+
+  Three real defects in existing code were found and fixed on the way (see the step 2
+  commit): a failed token refresh wedged every later request permanently, the app logged you
+  out 60 minutes after login regardless of refreshes, and the loading spinner raced itself.
+
+  What it needs from you is below; what it needs from motion-api is in § "App v2 needs these
+  from motion-api".
 - ✅ App: API-client layer (`src/api/eventsApi.js`, `devicesApi.js`), the events store
   (`src/stores/events.js`, cursor-paginated, not persisted), `EventCard.vue` +
   `EventsView.vue`, wired to `/events` behind the same `VITE_TEST_BUTTON` gate as the
