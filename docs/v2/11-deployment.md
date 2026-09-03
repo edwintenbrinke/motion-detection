@@ -83,9 +83,28 @@ Verified end to end over the public hostname, logged in as a real user:
 | Tampered / expired / missing signature | ✅ 403 |
 | Live: **MSE over WebSocket** | ✅ `101 Switching Protocols` through the tunnel |
 | Live: LL-HLS master + variant playlist | ✅ |
+| Clip playback in a real browser | ✅ 1920×1080, decoded and playing from the signed URL |
+| Live video in a real browser | ✅ MSE, 1920×1080, playing, badge reads "Live · ~1 s" |
 | Live: single frame | ✅ 1920×1080 JPEG |
 | Live without either credential | ✅ 403 |
-| WebRTC rung | offered LAN-only, as designed — it cannot traverse the tunnel |
+| WebRTC rung | offered LAN-only, and **a browser will not use it at all** — see below |
+
+### The WebRTC rung cannot work from a browser, and that is not fixable here
+
+The rung points at `http://192.168.1.248:1984`. The app is served over HTTPS, so the browser
+refuses it as mixed content before it ever reaches the network — on the LAN as much as
+remotely. Confirmed in Chrome: *"Access to fetch at 'http://192.168.1.248:1984/...' from
+origin 'https://motion.edwintenbrinke.nl' has been blocked."*
+
+This is not a fault in the ladder; it is the ladder working. The app tries the rung, is
+refused, drops to MSE and says so — "Verbonden van buitenaf. Ongeveer een seconde
+vertraging, dat is normaal." One second is a perfectly good live view.
+
+Getting WebRTC's 0.2 s back means one of: a certificate for that LAN address (awkward for an
+IP), or the Android app permitting cleartext to that one host through a network security
+config. The second is the realistic one, and it only helps the native app. Until then the
+rung is dead weight for web clients, and it is left in place because it costs one failed
+fetch and it is what the native app will use.
 
 ## The event feed is filled by polling, for now
 
@@ -98,6 +117,21 @@ It is idempotent, so a run after an outage backfills rather than duplicates. Whe
 bridge lands it takes over the live path and this stays useful as a **reconciler**: MQTT
 drops messages when nobody is listening, and a system that can only learn about events in
 real time can never catch up.
+
+## Testing it
+
+The browser half cannot be checked with curl, and it is where the interesting failures live.
+`docs/v2/` has no test harness for it; what was used is a headless run against the deployed
+site, which is worth repeating after a deploy:
+
+```bash
+docker run --rm -e MOTION_USER=… -e MOTION_PASS=… mcr.microsoft.com/playwright:v1.49.0-jammy   bash -lc 'npx playwright install chrome && node test.mjs'
+```
+
+> **Use `channel: 'chrome'`, not the bundled Chromium.** Playwright's Chromium ships without
+> proprietary codecs, so every H.264 stream fails with
+> `DEMUXER_ERROR_NO_SUPPORTED_STREAMS` and both the clip player and the live view look
+> broken when they are not. That cost a round of chasing a bug that was in the test.
 
 ## Running it
 

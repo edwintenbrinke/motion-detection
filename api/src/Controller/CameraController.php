@@ -95,11 +95,13 @@ class CameraController extends AbstractController
             ];
         }
 
-        // Rung 2 -- MSE over WebSocket, through this origin. nginx proxies /live/ to
-        // go2rtc after checking the signature; PHP never sees these frames.
+        // Rung 2 -- MSE over WebSocket, through this origin. nginx proxies /api/live/ to
+        // go2rtc after checking the signature; PHP never sees these frames. Under /api/
+        // deliberately: the SPA has its own /live route, and a shared prefix breaks the
+        // moment someone reloads on that page.
         $rungs[] = [
             'type' => 'mse',
-            'url' => sprintf('/live/api/ws?src=%s&%s', $name, $query),
+            'url' => sprintf('/api/live/api/ws?src=%s&%s', $name, $query),
             'lan_only' => false,
             'expected_latency_ms' => 1000,
         ];
@@ -107,7 +109,7 @@ class CameraController extends AbstractController
         // Rung 3 -- LL-HLS, for networks that block WebSockets.
         $rungs[] = [
             'type' => 'hls',
-            'url' => sprintf('/live/api/stream.m3u8?src=%s&%s', $name, $query),
+            'url' => sprintf('/api/live/api/stream.m3u8?src=%s&%s', $name, $query),
             'lan_only' => false,
             'expected_latency_ms' => 3000,
         ];
@@ -116,7 +118,7 @@ class CameraController extends AbstractController
         // it is also what the zone editor draws on.
         $rungs[] = [
             'type' => 'snapshot',
-            'url' => sprintf('/live/api/frame.jpeg?src=%s&%s', $name, $query),
+            'url' => sprintf('/api/live/api/frame.jpeg?src=%s&%s', $name, $query),
             'lan_only' => false,
             'expected_latency_ms' => 1000,
         ];
