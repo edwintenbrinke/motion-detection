@@ -2,20 +2,40 @@
 # behind every value here — in short: one H.264 stream, encoded once, on a Pi 5 that has
 # no hardware encoder, published as RTSP for Frigate to pick up.
 #
+# Written against MediaMTX v1.20.1. Only overrides are listed; everything else keeps the
+# binary's defaults. Booleans are `true`/`false` and not `yes`/`no`: MediaMTX parses with
+# yaml.v3, which does not treat `yes`/`no` as booleans.
+#
 # Reference: https://github.com/bluenviron/mediamtx
 
 logLevel: info
+# systemd captures stdout into the journal — `journalctl -u mediamtx`.
 logDestinations: [stdout]
 
 # Only RTSP is needed — Frigate connects over RTSP. HLS/WebRTC stay off here; they exist
-# in MediaMTX for ad-hoc debugging (flip hls: yes temporarily to view from a browser) but
-# are not part of the production path. The RTSP port must never leave the LAN.
+# in MediaMTX for ad-hoc debugging (flip hls to true temporarily to view from a browser)
+# but are not part of the production path. The RTSP port must never leave the LAN.
 rtspAddress: :8554
-rtsp: yes
-rtmp: no
-hls: no
-webrtc: no
-srt: no
+rtsp: true
+# TCP only. That is the transport Frigate uses, it is the one hop 02-video-transport.md
+# describes, and restricting it here means MediaMTX stops opening the UDP RTP/RTCP ports
+# (8000/8001) at all. Clients must ask for it explicitly: `ffplay -rtsp_transport tcp`,
+# since ffmpeg defaults to UDP.
+rtspTransports: [tcp]
+rtmp: false
+hls: false
+webrtc: false
+srt: false
+# Media-over-QUIC is on by default in MediaMTX 1.20 and listens on 8892/8893 on every
+# interface. Nothing here uses it.
+moq: false
+
+# Read-only control API on loopback only, so "is the camera actually publishing?" is
+# answerable without opening a video player:
+#     curl -s localhost:9997/v3/paths/get/cam | jq
+# Not reachable from the network; do not move it off 127.0.0.1.
+api: true
+apiAddress: 127.0.0.1:9997
 
 paths:
   cam:
@@ -24,6 +44,11 @@ paths:
     rpiCameraWidth: 1920
     rpiCameraHeight: 1080
     rpiCameraFPS: 25
+
+    # The BCM2712 has no hardware H.264 encoder, so this is CPU work. Stated explicitly
+    # rather than left on `auto` so that a future Pi (or a MediaMTX change to the
+    # auto-detection) cannot silently change what this box is doing.
+    rpiCameraCodec: softwareH264
 
     # 3 Mbit/s: see docs/v2/02-video-transport.md#numbers-first for why this beats the
     # ~15 Mbit/s the old MJPEG live view used, for a *better* picture.

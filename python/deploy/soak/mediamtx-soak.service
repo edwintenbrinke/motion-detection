@@ -1,0 +1,6 @@
+[Unit]
+Description=Sample MediaMTX and Pi health into /var/log/mediamtx-soak.log
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/mediamtx-soak

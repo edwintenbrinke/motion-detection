@@ -23,7 +23,7 @@ irreversible thing":
 
 | # | What | Why it waits for you |
 |---|---|---|
-| 6 | 🔶 Start MediaMTX on the Pi | `python/deploy/install.sh` is ready — installs and enables the service but does not start it. Nothing is currently running on the Pi (confirmed by you), so there's no conflicting process to stop this time; still flagging it since it's the first thing that actually runs on real hardware. Run it with `ssh rpi` + `./install.sh`, or tell me to go ahead |
+| 6 | ✅ Start MediaMTX on the Pi | **Done 2026-09-03**, on your go-ahead. Nothing held the camera, so the cutover was one `systemctl start`. Streaming 1080p25 @ 3.00 Mbit, upright, keyframe every second. One item left over and it is hardware: the Pi has no active cooler and is thermally throttled (`get_throttled=0xe0006` at 83–86 °C) — see Phase 1 in the roadmap |
 | 7 | ⬜ Pushing `kubernetes/apps/motion/*` to `homelab-cluster` main | Flux auto-applies on push. I'll build it on a branch and open it for your review first — not merge it myself |
 | 8 | ⬜ GPU node re-provisioning (Phase 3) | Takes down `space-crucible-prod`. Explicitly scheduled as its own maintenance window in the roadmap, not attempted here regardless of time available |
 | 9 | ⬜ Creating the `motion.edwintenbrinke.nl` DNS/HTTPRoute | Cheap and safe, but it's the first real "this is now reachable" step — flagging it rather than silently making something newly reachable while you're asleep |
@@ -32,8 +32,9 @@ irreversible thing":
 
 Everything that's pure repo work with no real-world side effect until someone applies it:
 
-- ✅ Pi-side: MediaMTX config, systemd unit, install script, README (files only — not run
-  on the actual Pi; that is item 6 above)
+- ✅ Pi-side: MediaMTX config, systemd unit, install script, README — **and since
+  2026-09-03 actually installed and running on the Pi** (item 6 above), plus a `soak/`
+  timer logging Pi health every 5 minutes for the phase's 24-hour criterion
 - ✅ Legacy Python agent moved to `python/legacy/`, Dockerfile/compose updated to match
 - ✅ `event-bridge`: MQTT→HTTP service with buffering/replay, unit-tested (7/7 passing,
   no MQTT broker or live API needed — see `python/bridge/README.md`), fixtures for manual

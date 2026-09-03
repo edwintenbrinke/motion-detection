@@ -38,6 +38,13 @@ Pi 5 with `libx264`-class settings:
 | 4K @ 15 fps | ~90 %+ | No |
 | Today: JPEG 1080p30 in Python + H.264 while recording | pegged | This is the current state |
 
+**Measured 2026-09-03**, MediaMTX 1.20.1 with OpenH264 at 1080p25/3 Mbit: **~65 % of one
+core**, load average 0.7–0.8 — roughly 16 % of the four-core budget, a third of the estimate
+above. The table stays as a conservative planning figure, but the real headroom is larger
+than it assumes. What is *not* larger is thermal headroom: this Pi has no active cooler and
+sits at 83–86 °C with the clock capped, so the constraint here is cooling, not cores. See
+[08-pi-agent.md](08-pi-agent.md#the-one-thing-that-is-not-fine-heat).
+
 **1080p at 25 fps, 3 Mbit, keyframe every second** is the recommendation. Frame rate is
 worth far less than resolution for detection, and 25 is plenty for a doorbell view.
 

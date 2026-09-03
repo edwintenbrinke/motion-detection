@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# One sample of "is the Pi coping?", appended to /var/log/mediamtx-soak.log.
+#
+# Verification scaffolding for Phase 1, not part of the camera itself. The roadmap's
+# done-criteria for this phase are a 24-hour claim ("stable for 24 h, load < 2.0,
+# get_throttled == 0x0"), and a claim over 24 hours needs a log rather than a memory of
+# having looked once. Remove it (see uninstall in soak/README.md) once the phase is signed
+# off — or keep it; it costs one line every five minutes.
+set -uo pipefail
+
+LOG=/var/log/mediamtx-soak.log
+
+temp=$(vcgencmd measure_temp | cut -d= -f2)
+throttled=$(vcgencmd get_throttled | cut -d= -f2)
+load=$(cut -d' ' -f1 /proc/loadavg)
+state=$(systemctl is-active mediamtx)
+# Restart count: if this climbs, the service is crash-looping and "it was up when I looked"
+# is not the same as "it stayed up".
+restarts=$(systemctl show mediamtx -p NRestarts --value 2>/dev/null || echo '?')
+# Frigate will read this stream; if MediaMTX says the path is not ready, nothing else
+# matters. The API is on loopback, so this only works on the Pi itself.
+ready=$(curl -sf --max-time 3 localhost:9997/v3/paths/get/cam \
+  | grep -o '"ready":[a-z]*' | cut -d: -f2)
+ready=${ready:-unreachable}
+# Encoder CPU, as a share of one core.
+enc=$(ps -C mtxrpicam -o %cpu= 2>/dev/null | tr -d ' ')
+enc=${enc:-0}
+
+printf '%s state=%s ready=%s restarts=%s load=%s temp=%s throttled=%s enc_cpu=%s\n' \
+  "$(date -Is)" "$state" "$ready" "$restarts" "$load" "$temp" "$throttled" "$enc" >> "$LOG"

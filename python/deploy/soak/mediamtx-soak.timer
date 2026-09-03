@@ -1,0 +1,12 @@
+[Unit]
+Description=Sample MediaMTX and Pi health every 5 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+# A gap in the log after a reboot should look like a gap, not like a burst of samples
+# pretending the Pi was up the whole time.
+Persistent=false
+
+[Install]
+WantedBy=timers.target

@@ -43,17 +43,34 @@ folder were updated in place rather than left to contradict this table.
 
 ---
 
-## Phase 1 — The Pi becomes a camera · 1 evening
+## Phase 1 — The Pi becomes a camera · streaming, one item open
 
 Per [08-pi-agent.md](08-pi-agent.md). Install MediaMTX, write the config, systemd unit,
 `vflip` at capture, keyframe every second.
 
 The old agent keeps running until the last step; both want the camera, so the actual switch
-is a stop-and-start with a tested rollback.
+is a stop-and-start with a tested rollback. In the event there was nothing to stop — no
+`motion-detection` unit, no `main.py`, `/dev/video0` free — so the cutover was one
+`systemctl start`.
 
 **Done when:** `ffplay rtsp://192.168.1.221:8554/cam` shows a stable, correctly-oriented
 1080p25 picture for 24 h; Pi load average < 2.0; `vcgencmd get_throttled` returns `0x0`;
 restarting the Pi brings the stream back unattended.
+
+**Where it stands (2026-09-03).** MediaMTX 1.20.1 installed, pinned by digest, enabled and
+running; `python/deploy/` holds the config, unit, installer and a soak logger.
+
+| Criterion | |
+|---|---|
+| Correctly-oriented 1080p25 | ✅ 1920×1080, 25.00 fps, 3.00 Mbit, keyframe every 25 frames, upright |
+| Load average < 2.0 | ✅ 0.7–0.8. The encoder takes ~65 % of *one* core, not half the box |
+| `get_throttled` = `0x0` | ❌ `0xe0006` — **no active cooler is fitted**. 83–86 °C streaming, 63.7 °C idle |
+| Stable for 24 h | ⏳ soaking; `/var/log/mediamtx-soak.log` samples every 5 minutes |
+| Reboot brings it back | ⏳ unit is enabled, not yet proven by an actual reboot |
+
+The throttling is not costing frames today — the numbers above were measured with the
+throttle bits already set — but it is the one number the phase asks for and it is a €5 part.
+Fit the cooler, then let the soak log run a day. Phase 2 does not depend on either.
 
 ---
 
@@ -192,7 +209,7 @@ suppressing your own family. A Grafana dashboard next to the host dashboards.
 | Node re-provision for the GPU takes down the game | certain | high | Phase 3 is independent; schedule a window; test the CNPG restore first |
 | NFS target is full | high | high | Phase 0 check; `/mnt/external4`; retention is one number |
 | SQLite on NFS corrupts the Frigate database | medium | high | Config PVC on NVMe. Stated three times in these docs for a reason |
-| Pi 5 thermal throttling under sustained x264 | medium | medium | Active cooler; 25 fps not 50; monitor `get_throttled` |
+| Pi 5 thermal throttling under sustained x264 | **happening** | medium | 25 fps not 50 (done); `get_throttled` monitored every 5 min (done); active cooler **still to fit** |
 | Notification fatigue kills the product | high | high | Masks in Phase 2, cooldown + rate cap + snooze in Phase 6's first version |
 | Frigate config drift between git and the PVC | certain | medium | [adr/0005](adr/0005-frigate-config-on-pvc.md): PVC is the source, nightly export to git |
 | Ollama and Frigate contending for 11 GB VRAM | medium | low | `keep_alive: -1`, GenAI on alerts only, or a nightly batch |

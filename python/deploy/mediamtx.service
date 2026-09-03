@@ -2,6 +2,9 @@
 Description=MediaMTX (camera → RTSP)
 After=network-online.target
 Wants=network-online.target
+# Restart=always plus a generous limit: a camera that gives up after five quick failures
+# is a camera that is dark until someone notices.
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple
@@ -12,13 +15,17 @@ RestartSec=5
 # Pi outrank it under load.
 Nice=-5
 
-# Runs as root: libcamera needs access to /dev/video*, /dev/media* and the VideoCore
-# firmware interface, and on stock Raspberry Pi OS that is simplest as root rather than
-# chasing group/ACL permissions on every device node. If you want to run this unprivileged,
-# add the service's user to the `video` group first and test camera access still works
-# before removing root — a silent permission failure here looks identical to "no camera".
+# Runs as root: libcamera needs access to /dev/video*, /dev/media*, /dev/dma_heap/* and
+# the VideoCore firmware interface, and on stock Raspberry Pi OS that is simplest as root
+# rather than chasing group/ACL permissions on every device node. If you want to run this
+# unprivileged, add the service's user to the `video` group first and test camera access
+# still works before removing root — a silent permission failure here looks identical to
+# "no camera".
 NoNewPrivileges=yes
 ProtectHome=yes
+# MediaMTX unpacks its embedded Raspberry Pi camera component (mtxrpicam_64, including
+# its own libcamera build) into a temporary directory at startup; PrivateTmp gives it a
+# private one instead of leaving it in the shared /tmp.
 PrivateTmp=yes
 
 [Install]
