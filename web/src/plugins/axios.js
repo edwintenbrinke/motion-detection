@@ -27,6 +27,17 @@ const rawClient = axios.create({
 
 const REFRESH_URL = '/api/token/refresh';
 
+/**
+ * Endpoints where a 401 means "these credentials are wrong", not "this session expired".
+ *
+ * Without this, a mistyped password went: login 401 -> the interceptor tries to refresh ->
+ * there is no refresh token yet, because you are not logged in -> SessionExpiredError ->
+ * which has no `.response`, so fromAxios() classified it as a network failure and the login
+ * screen said **"geen verbinding met de server"**. The one message guaranteed to send you
+ * looking at the server instead of at what you typed.
+ */
+const NO_REFRESH_URLS = ['/api/login', '/api/logout', REFRESH_URL];
+
 /** Thrown when the refresh token itself is gone or rejected: the session is over. */
 export class SessionExpiredError extends Error {
     constructor(message = 'De sessie is verlopen') {
@@ -169,9 +180,9 @@ apiClient.interceptors.response.use(
         }
 
         const status = error.response.status;
-        const isRefreshCall = originalRequest?.url?.includes(REFRESH_URL);
+        const skipsRefresh = NO_REFRESH_URLS.some((url) => originalRequest?.url?.includes(url));
 
-        if (status !== 401 || isRefreshCall || originalRequest?._retry) {
+        if (status !== 401 || skipsRefresh || originalRequest?._retry) {
             releaseLoading(originalRequest);
             return Promise.reject(error);
         }
