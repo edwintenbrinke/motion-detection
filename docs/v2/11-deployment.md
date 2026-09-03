@@ -196,6 +196,12 @@ against the running system rather than guessed. Short version:
 - **Zones and masks** (H9) — the editor is built and has nothing to save to. The highest
   value item here: nothing is scoped, so every person anywhere in frame is an alert
 - **Timeline** (H4) — built, and the endpoint it needs returns 404
+- **No buffer around clips** — a 3-second event gives a 3.037-second clip. The footage
+  either side is retained; the clip endpoint just does not include it
+- **Events cannot be deleted** — and the sync never removes, so anything deleted in Frigate
+  lives on in the feed pointing at media that 404s
+- **No dashboard** — Frigate already serves Prometheus metrics and the cluster already runs
+  Grafana; nothing is wired between them
 - **Push** (H5) — needs Phase 6 and a `google-services.json`
 - **Search and date filters** (H7) — `from`, `to`, `q` are still ignored by `EventController`
 - **No CI** — images are built by hand, as above

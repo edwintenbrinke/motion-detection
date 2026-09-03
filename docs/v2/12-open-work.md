@@ -14,6 +14,9 @@ below — the order is chosen so each step is verifiable before the next one lan
 | 3 | Clip player shows the wrong time | Bug | small |
 | 4 | Zones and motion masks | Missing feature (H9) | large |
 | 5 | Timeline | Missing feature (H4) | large |
+| 6 | A few seconds of buffer around each clip | Missing feature | small |
+| 7 | Deleting events | Missing feature | medium |
+| 8 | Grafana dashboard | Missing feature | medium |
 
 ---
 
@@ -325,6 +328,193 @@ is unchanged (`/api` already covers it), `TimelineView.vue` wiring.
 Open the timeline for today. The strip shows the recorded hours, dragging shows preview
 frames rather than a spinner, releasing plays the recording at that moment, and the two
 person events sit at 18:34 and 18:48.
+
+---
+
+## 6. A few seconds of buffer around each clip
+
+### What happens
+
+An event clip starts the instant the object is seen and ends the instant it is gone. A
+3-second event gives a 3-second clip — measured: `duration=3.037267`. You never see what
+happened just before, which is usually the part you wanted.
+
+### Cause, and why the config already looks right
+
+The config *does* set a buffer:
+
+```
+alerts:     pre=5s post=5s
+detections: pre=5s post=5s
+```
+
+but `record.*.pre_capture` decides **which recording segments are kept**, not how long
+`clip.mp4` is. `/api/events/<id>/clip.mp4` always returns exactly the event's own window.
+The footage either side already exists on disk — it is retained, it is just not in the clip.
+
+So this is not a Frigate setting we have got wrong. It is an endpoint choice.
+
+### Fix
+
+Frigate serves any time range:
+
+```
+/api/{camera}/start/{start}/end/{end}/clip.mp4
+```
+
+Verified against the same event: asking for ±5 s returned **13.03 s** of video, 4.9 MB,
+containing the 3-second event in the middle.
+
+`MediaController` already resolves `clip` to an upstream path. Change that resolution to use
+the ranged endpoint with the event's `started_at`/`ended_at` and a configurable pad:
+
+- `MEDIA_CLIP_PRE_ROLL_S` / `MEDIA_CLIP_POST_ROLL_S`, defaulting to 5, on `motion-api-secret`
+  or plain env.
+- Keep the padding **below** `record.*.pre_capture`, or you will ask for segments that
+  retention has already deleted and get a short clip back with no error. Five and five
+  matches what is retained today; if the pad goes up, that config goes up first.
+- The event's `duration_s` in the app is the *event* length, not the clip length. The player
+  fix in §3 must use `pre + duration + post` for the scrubber, or the timeline under the
+  video will be wrong in a new way.
+
+There is a second, larger prize here: this is the same endpoint the timeline needs (§5), so
+building it once serves both.
+
+### Files
+
+`src/Service/FrigateClient.php`, `src/Controller/MediaController.php`,
+`web/src/components/player/VideoPlayer.vue`, the HelmRelease env.
+
+### Verify
+
+Open an event of a few seconds. The clip runs about ten seconds longer than the event, the
+person walks in rather than being already there, and the scrubber matches.
+
+---
+
+## 7. Deleting events
+
+### State
+
+Nothing in the app can delete. Frigate can: `DELETE /api/events/{id}` exists and works.
+
+> It works rather thoroughly. I confirmed the route existed by calling it with a real id
+> during this investigation, and it deleted a real event — `1788460474.723833-5q5tpf`, the
+> 18:34 person — clip, snapshot and all. That is the correct behaviour and the wrong way to
+> have tested it. Recorded here because the same trap is waiting for whoever implements this:
+> **test destructive endpoints against an event you created for the purpose.**
+
+### The part that is not obvious
+
+Deleting has to happen in two places, and the sync currently makes that worse. Confirmed
+during the same investigation: the deleted event is gone from Frigate and **still in the
+app's MySQL**, because `app:frigate:sync-events` only inserts and updates. It has no concept
+of removal, so anything deleted upstream lives on in the feed forever, pointing at media that
+returns 404.
+
+That bug exists today, independently of this feature.
+
+### Fix
+
+Three parts:
+
+1. **`DELETE /api/events/{id}` on motion-api.** Deletes upstream in Frigate first, and only
+   removes the local row if Frigate agreed — the other order leaves the feed lying about what
+   exists. Return 404 for an unknown id, 502 if Frigate refuses.
+2. **Reconcile deletions in the sync.** For the window it just fetched, any local event in
+   that time range that Frigate no longer has is gone: delete it. Bounded to the fetched
+   window so a Frigate outage cannot empty the table.
+3. **The app.** A delete action on the event detail with a confirmation, and an optimistic
+   removal from the feed store. `EventsView` already has a store to remove from.
+
+Consider soft-delete locally (a `deleted_at` column) rather than a hard row delete, so an
+accidental tap is recoverable for a day even though the media is not. The media is gone
+either way — that is Frigate's call and it is immediate.
+
+### Files
+
+`src/Controller/EventController.php`, `src/Command/SyncFrigateEventsCommand.php`,
+`src/Service/FrigateClient.php`, `web/src/api/adapters/bff/events.js`,
+`web/src/views/EventDetailView.vue`, a migration if soft-delete wins.
+
+### Verify
+
+Delete an event in the app. It leaves the feed, `curl /api/events` on Frigate no longer has
+it, the next sync does not resurrect it, and its media URL 404s.
+
+---
+
+## 8. Grafana dashboard
+
+### What exists already
+
+More than expected. Frigate exposes Prometheus metrics at **`/api/metrics`** — confirmed
+serving — and the cluster already runs kube-prometheus-stack with Grafana. So this is
+wiring, not building.
+
+Metrics worth a panel, all present with real values right now:
+
+| Metric | Now |
+|---|---|
+| `frigate_storage_used_bytes` / `_total_bytes` / `_free_bytes` | per mount, tagged `nfs4` vs `tmpfs` |
+| `frigate_camera_fps`, `frigate_process_fps`, `frigate_skipped_fps` | 5.0 / 5.0 / 0.0 |
+| `frigate_detection_fps` | 0.2 |
+| `frigate_detector_inference_speed_seconds` | 0.00821 — the GPU, in one number |
+| `frigate_gpu_usage_percent`, `frigate_gpu_mem_usage_percent` | the 1080 Ti |
+| `frigate_camera_events_total` | events since the exporter started |
+| `frigate_device_temperature`, `frigate_service_uptime_seconds` | |
+| `frigate_cpu_usage_percent`, `frigate_mem_usage_percent` | per process |
+
+### What is missing and has to come from us
+
+Frigate counts events since *its own* start, and knows nothing about clip counts or growth
+over time. The interesting questions — "how many clips do I have", "how fast is the disk
+filling", "is retention actually holding" — need the app's own data:
+
+- A small `/metrics` on motion-api (or a recording rule) exposing `motion_events_total` by
+  camera, label and severity from the events table, plus the storage the recordings
+  directory actually occupies.
+- Growth per day is then a Prometheus `rate()` over storage-used, which is the panel that
+  answers "will 3 days of continuous still fit next month".
+
+### The retention panel is the one that matters
+
+Storage used against the retention budget, with the 115 GB figure from
+[06-kubernetes.md](06-kubernetes.md#retention-budget) drawn as a threshold. The done-criteria
+for Phase 2 include "the recordings volume grows and then *stops* growing after 72 h" — that
+is a graph, and nobody is going to watch `du` for three days to see it.
+
+### Alerts worth having, from the same data
+
+Straight from [06-kubernetes.md](06-kubernetes.md#observability), and they are cheap now:
+
+- **camera offline > 2 min** — `frigate_camera_fps == 0`
+- **no events for 12 h** — a dead camera and a quiet day look identical in a graph, and this
+  is the alert that tells them apart
+- **recordings volume > 90 %**
+- **detection fps below target**, which catches a GPU that has quietly fallen back to CPU
+
+### Fix
+
+1. A `ServiceMonitor` for Frigate against `/api/metrics` in
+   `kubernetes/apps/motion/frigate/app/`.
+2. A dashboard as a ConfigMap with the Grafana sidecar label, next to the existing host
+   dashboards.
+3. `PrometheusRule` for the four alerts.
+4. Optionally, the motion-api metrics endpoint for clip counts and per-label totals.
+
+Steps 1–3 stand alone and are worth doing first; step 4 is the one that needs app code.
+
+### Files
+
+`kubernetes/apps/motion/frigate/app/servicemonitor.yaml`, a dashboard ConfigMap,
+`prometheusrule.yaml`, and `docs/motion-detection.md` in the homelab repo.
+
+### Verify
+
+Grafana shows the panels with real numbers. Then pull the Pi's power for three minutes and
+watch the camera-offline alert fire — the one alert whose whole job is to notice exactly
+that.
 
 ---
 
