@@ -16,6 +16,7 @@
           :src="event.media.clip"
           :poster="event.media.snapshot"
           :expires-at="event.media.expires_at"
+          :known-duration="clipDuration"
           @expired="onMediaExpired"
           @retry="onMediaExpired"
       />
@@ -75,6 +76,21 @@
         <p v-else class="thanks">
           <i class="pi pi-check" aria-hidden="true"></i> Bedankt, dat helpt de herkenning
         </p>
+
+        <button type="button" class="danger" :disabled="deleting" @click="confirmDelete = true">
+          <i class="pi pi-trash" aria-hidden="true"></i> Verwijderen
+        </button>
+      </div>
+
+      <div v-if="confirmDelete" class="confirm" role="alertdialog" aria-label="Event verwijderen">
+        <p>Dit event, de clip en het snapshot worden definitief verwijderd. Dit kan niet ongedaan gemaakt worden.</p>
+        <div class="confirm-actions">
+          <button type="button" @click="confirmDelete = false" :disabled="deleting">Annuleren</button>
+          <button type="button" class="danger" :disabled="deleting" @click="onDelete">
+            {{ deleting ? 'Bezig…' : 'Definitief verwijderen' }}
+          </button>
+        </div>
+        <p v-if="deleteError" class="delete-error">{{ deleteError }}</p>
       </div>
 
       <FeedbackDialog
@@ -130,6 +146,44 @@ const feedbackSent = ref(false);
 
 const eventId = computed(() => String(route.params.id));
 const event = computed(() => store.byId(eventId.value));
+
+/**
+ * How long the clip actually is, which is not the same as how long the event lasted.
+ *
+ * The API pads clips by a few seconds either side (docs/v2/12-open-work.md §6) and reports
+ * the padded length as `media.clip_duration_s`. Falling back to the event's own duration
+ * keeps this correct against an older API that does not pad; falling back to nothing would
+ * put us back on `video.duration`, which for a fragmented MP4 is the size of the buffer
+ * rather than the length of the clip.
+ */
+const confirmDelete = ref(false);
+const deleting = ref(false);
+const deleteError = ref('');
+
+/**
+ * Deleting removes the media in Frigate as well, so it is behind a confirmation and the
+ * navigation only happens once the API has actually agreed.
+ */
+async function onDelete() {
+  deleting.value = true;
+  deleteError.value = '';
+  try {
+    await store.remove(eventId.value);
+    confirmDelete.value = false;
+    router.replace('/events');
+  } catch (error) {
+    deleteError.value = error?.message ?? 'Verwijderen is niet gelukt';
+  } finally {
+    deleting.value = false;
+  }
+}
+
+const clipDuration = computed(() => {
+  const padded = event.value?.media?.clip_duration_s;
+  if (Number.isFinite(padded) && padded > 0) return padded;
+  const raw = event.value?.duration_s;
+  return Number.isFinite(raw) && raw > 0 ? raw : null;
+});
 
 const allChips = computed(() => (event.value ? chips(event.value) : []));
 const genaiSeverity = computed(() => genaiSeverityNl(event.value?.genai_severity));
@@ -420,6 +474,28 @@ onMounted(load);
 
 .genai-suspicious { color: var(--app-accent); }
 .genai-dangerous { color: var(--app-alert); }
+
+.confirm {
+  margin: 16px 0;
+  padding: 14px;
+  border: 1px solid var(--app-danger, #ff4d4d);
+  border-radius: 10px;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.danger {
+  color: var(--app-danger, #ff4d4d);
+}
+
+.delete-error {
+  margin-top: 10px;
+  color: var(--app-danger, #ff4d4d);
+}
 
 .feedback {
   padding: var(--app-space-4);

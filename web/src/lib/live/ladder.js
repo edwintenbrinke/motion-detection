@@ -150,6 +150,18 @@ export function createLadder(options) {
             return;
         }
 
+        // A stall that fixes itself is a hiccup, not a broken rung. Without this the timer
+        // set above runs to completion and drops a working stream down a rung for a pause
+        // the viewer may not even have noticed.
+        if (event === 'resumed') {
+            if (phase !== 'stalled') return;
+            clearTimer();
+            phase = 'playing';
+            error = null;
+            emit();
+            return;
+        }
+
         if (event === 'error') {
             failCurrentRung(payload ?? new Error('Onbekende fout'));
         }

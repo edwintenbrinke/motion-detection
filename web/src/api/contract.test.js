@@ -37,7 +37,7 @@ describe('normaliseEvent', () => {
     });
 
     it('fills in a media block when the DTO has none, which is the case today', () => {
-        expect(normaliseEvent(raw).media).toEqual({ thumbnail: null, snapshot: null, clip: null, expires_at: null });
+        expect(normaliseEvent(raw).media).toEqual({ thumbnail: null, snapshot: null, clip: null, clip_duration_s: null, expires_at: null });
     });
 
     it('treats anything that is not "alert" as a detection', () => {

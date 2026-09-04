@@ -60,4 +60,8 @@ security:
         # required", not "unauthenticated". Do not add a route under /api/media that does
         # not call MediaTokenService::verify(). See docs/v2/07-api-and-data-model.md#media-tokens.
         - { path: ^/api/media, roles: PUBLIC_ACCESS }
+        # Same bargain as /api/media, for the same reason: an HLS playlist references its
+        # segments relatively, so those requests arrive with no header and no signature.
+        # TimelineMediaController checks a signature or a session on every route under here.
+        - { path: ^/api/timeline, roles: PUBLIC_ACCESS }
         - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }

@@ -1,22 +1,55 @@
 # Open work — the plan
 
-Five things: three that are broken and two that were never built. Everything below was
-diagnosed against the running system on 2026-09-03, not inferred from the code, so the
-"cause" sections are findings rather than theories. Where I am guessing, it says so.
+**All eight are implemented and verified against the running system (2026-09-04).** This
+document is kept as the record of what was wrong and why, because the causes turned out to
+be worth more than the fixes: most of them were things that looked correct and were not.
 
-Read this, then say **"fix dit allemaal"** and it gets executed in one pass, in the order
-below — the order is chosen so each step is verifiable before the next one lands.
+| # | What | Status |
+|---|---|---|
+| 1 | Refreshing the page logs you out | ✅ stays logged in across three reloads |
+| 2 | Live view is choppy after a refresh | ✅ 5/5 refreshes, playbackRate 1, no seeking |
+| 3 | Clip player shows the wrong time | ✅ real duration from the event |
+| 4 | Zones and motion masks | ✅ create, read and delete, applied by Frigate |
+| 5 | Timeline | ✅ 7 spans, 5 previews, 12 events, HLS through the gate |
+| 6 | A few seconds of buffer around each clip | ✅ a 4 s event gives a 14.03 s clip |
+| 7 | Deleting events | ✅ gone from Frigate and the app, no resurrection |
+| 8 | Grafana dashboard | ✅ scraping, 4 alerts loaded, panels drawing |
 
-| # | What | Kind | Effort |
-|---|---|---|---|
-| 1 | Refreshing the page logs you out | Bug | small |
-| 2 | Live view is choppy after a refresh | Bug, three causes | medium |
-| 3 | Clip player shows the wrong time | Bug | small |
-| 4 | Zones and motion masks | Missing feature (H9) | large |
-| 5 | Timeline | Missing feature (H4) | large |
-| 6 | A few seconds of buffer around each clip | Missing feature | small |
-| 7 | Deleting events | Missing feature | medium |
-| 8 | Grafana dashboard | Missing feature | medium |
+## What was actually wrong
+
+Every one of these was found by running the thing, not by reading it. Seven were invisible
+failures — code that ran, returned success, and did nothing:
+
+- The **cold-start lock** cleared a flag the browser could never restore, so a correct
+  security feature became a login prompt on every refresh.
+- `MseClient.stop()` set `ws.onclose = null` on handlers added with `addEventListener`, which
+  removes nothing.
+- `keepUp()` hard-seeked after every appended fragment; through a tunnel that is constantly.
+- **No client ever emitted `stalled`**, so the ladder's entire recovery path was dead code.
+- `record.*.pre_capture` looked like the clip buffer and is not — it decides which segments
+  are *retained*.
+- The **sync only ever inserted**, so anything deleted upstream lived in the feed forever
+  pointing at media that 404s.
+- **`config/set` reads every query parameter as a config key**, including `requires_restart`,
+  and answers "Error parsing config" with the real reason several frames down a pydantic
+  trace in Frigate's own log.
+- **`config/set` cannot delete**: an empty value leaves the zone behind without its required
+  field and Frigate rejects the whole request.
+- **Saving a config is not applying it.** Frigate keeps serving the old one until it
+  restarts, so a zone written without that reads back as absent and matches nothing.
+- The **PrometheusRule had no `release` label**, so four alerts were created, looked correct
+  in `kubectl get`, and were never loaded.
+
+And one that was mine twice over: the reconcile window. Bounding a deletion check to the
+span of the events that came back sounds safe and is exactly wrong — an event deleted
+*before* the oldest survivor is never in range, which is the one case the check exists for.
+
+## One thing the fixes revealed
+
+With no zones and no masks, Frigate tracks a parked car as a **single event lasting two and
+a half hours**. That is not a bug; it is what "nothing is scoped" means, and it is why §4
+mattered. It also makes the padded clip for such an event useless — a 154-minute clip is not
+something a player opens. Draw the zones.
 
 ---
 

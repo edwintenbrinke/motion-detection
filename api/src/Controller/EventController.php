@@ -8,6 +8,7 @@ use App\DTO\Event\EventFeedbackInputDTO;
 use App\DTO\Event\EventOutputDTO;
 use App\Entity\Event;
 use App\Repository\EventRepository;
+use App\Service\FrigateClient;
 use App\Service\MediaUrlBuilder;
 use App\Trait\ValidationTrait;
 use Doctrine\ORM\EntityManagerInterface;
@@ -29,8 +30,10 @@ class EventController extends AbstractController
 {
     use ValidationTrait;
 
-    public function __construct(private readonly MediaUrlBuilder $media_url_builder)
-    {
+    public function __construct(
+        private readonly MediaUrlBuilder $media_url_builder,
+        private readonly FrigateClient $frigate_client,
+    ) {
     }
 
     #[OA\Get(
@@ -104,6 +107,49 @@ class EventController extends AbstractController
         $entity_manager->flush();
 
         return $this->json(['message' => 'Marked seen']);
+    }
+
+    /**
+     * Deletes an event here and in Frigate.
+     *
+     * Frigate first, and the local row only if it agreed. The other order leaves the feed
+     * insisting the event is gone while its clip is still there -- and worse, the next sync
+     * would put the row straight back, because the sync mirrors whatever Frigate has.
+     *
+     * There is no undo. Frigate removes the clip and the snapshot immediately.
+     */
+    #[OA\Delete(
+        summary: 'Delete an event, here and in Frigate. Irreversible.',
+        responses: [
+            new OA\Response(response: 204, description: 'Deleted'),
+            new OA\Response(response: 404, description: 'No such event'),
+            new OA\Response(response: 502, description: 'Frigate refused; nothing was deleted'),
+        ]
+    )]
+    #[Route('/{id}', name: 'api_events_delete', methods: ['DELETE'])]
+    public function delete(Event $event, EntityManagerInterface $entity_manager): Response
+    {
+        try
+        {
+            $deleted = $this->frigate_client->deleteEvent($event->getId());
+        }
+        catch (\Throwable)
+        {
+            $deleted = false;
+        }
+
+        if (!$deleted)
+        {
+            return $this->json(
+                ['message' => 'Frigate kon het event niet verwijderen; er is niets weggegooid'],
+                Response::HTTP_BAD_GATEWAY,
+            );
+        }
+
+        $entity_manager->remove($event);
+        $entity_manager->flush();
+
+        return new Response('', Response::HTTP_NO_CONTENT);
     }
 
     #[OA\Post(

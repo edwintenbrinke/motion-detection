@@ -27,6 +27,11 @@ services:
             # Cloudflare Tunnel (adr/0004). Empty means "do not offer that rung at all",
             # which is better than offering one that always times out.
             string $webrtc_lan_url: '%env(resolve:WEBRTC_LAN_URL)%'
+            # Padding either side of an event clip. Keep these at or below Frigate's
+            # record.*.pre_capture/post_capture, or you ask for recording segments that
+            # retention has already deleted and get a short clip back with no error.
+            int $clip_pre_roll_s: '%env(int:MEDIA_CLIP_PRE_ROLL_S)%'
+            int $clip_post_roll_s: '%env(int:MEDIA_CLIP_POST_ROLL_S)%'
 
             # Automatically inject the conversion logger into any service requiring it
 #            LoggerInterface $conversion_logger: '@monolog.logger.conversion_logger'  # Bind conversion_logger

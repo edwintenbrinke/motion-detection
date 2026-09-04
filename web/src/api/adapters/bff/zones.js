@@ -13,7 +13,9 @@ export function createZonesApi() {
          * is given, so reordering here would silently redraw the zone.
          */
         async put(camera, zones) {
-            await put(`/api/cameras/${encodeURIComponent(camera)}/zones`, { zones }, { silent: false });
+            // 202 with `restarting: true`: Frigate has to restart before a zone actually
+            // applies, and that is about a minute of no camera. The caller shows it.
+            return await put(`/api/cameras/${encodeURIComponent(camera)}/zones`, { zones }, { silent: false });
         },
 
         async getMasks(camera) {
@@ -22,7 +24,7 @@ export function createZonesApi() {
         },
 
         async putMasks(camera, masks) {
-            await put(`/api/cameras/${encodeURIComponent(camera)}/masks`, { masks }, { silent: false });
+            return await put(`/api/cameras/${encodeURIComponent(camera)}/masks`, { masks }, { silent: false });
         },
     };
 }

@@ -1,4 +1,4 @@
-import { get, post, absolute } from './client.js';
+import { get, post, absolute, del } from './client.js';
 import { normalisePage, normaliseEvent } from '@/api/contract.js';
 
 function withAbsoluteMedia(event) {
@@ -53,6 +53,14 @@ export function createEventsApi() {
          * 07 describes `{correct, should_be}`. Until that is settled (HANDOFF H8) the app
          * packs its structure into the string, so nothing is lost either way.
          */
+        /**
+         * Irreversible: the API deletes the clip and snapshot in Frigate too. Not silent --
+         * the user asked for this one and the overlay is the acknowledgement.
+         */
+        async remove(id) {
+            await del(`/api/events/${encodeURIComponent(id)}`, { silent: false });
+        },
+
         async feedback(id, feedback) {
             await post(`/api/events/${encodeURIComponent(id)}/feedback`, { feedback }, { silent: false });
         },

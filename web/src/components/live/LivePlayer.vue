@@ -131,7 +131,20 @@ watch(() => props.camera, restart);
 
 onMounted(connect);
 
+/**
+ * A page refresh does not reliably run onBeforeUnmount, so the WebSocket is left for the
+ * browser to reap. go2rtc keeps that consumer for a moment, and the next page load gets a
+ * backlog of fragments the instant it connects -- which is the difference between the first
+ * load being smooth and every one after it stuttering. `pagehide` fires on refresh, on
+ * navigation and on the bfcache path, which none of the alternatives manage together.
+ */
+function closeOnUnload() {
+  teardown();
+}
+window.addEventListener('pagehide', closeOnUnload);
+
 onBeforeUnmount(async () => {
+  window.removeEventListener('pagehide', closeOnUnload);
   lifecycle.stop();
   await teardown();
 });

@@ -19,12 +19,15 @@ class MediaUrlBuilder
     public const KIND_SNAPSHOT = 'snapshot';
     public const KIND_CLIP = 'clip';
 
-    public function __construct(private readonly MediaTokenService $media_token_service)
-    {
+    public function __construct(
+        private readonly MediaTokenService $media_token_service,
+        private readonly int $clip_pre_roll_s = 5,
+        private readonly int $clip_post_roll_s = 5,
+    ) {
     }
 
     /**
-     * @return array{thumbnail: ?string, snapshot: ?string, clip: ?string, expires_at: ?string}
+     * @return array{thumbnail: ?string, snapshot: ?string, clip: ?string, clip_duration_s: ?int, expires_at: ?string}
      */
     public function forEvent(Event $event, ?int $now = null): array
     {
@@ -46,8 +49,43 @@ class MediaUrlBuilder
             'thumbnail' => $thumbnail,
             'snapshot' => $snapshot,
             'clip' => $clip,
+            // The clip is padded either side, so its length is not the event's. The player
+            // needs this: Frigate's fMP4 carries no duration, so without a number to trust
+            // the scrubber reads whatever has buffered so far.
+            'clip_duration_s' => $clip !== null ? $this->clipDurationSeconds($event) : null,
             'expires_at' => $expires_at,
         ];
+    }
+
+    /**
+     * The padded window this event's clip covers, as unix seconds.
+     *
+     * Returns null when the event has not ended yet -- there is no "after" to pad into,
+     * and asking Frigate for a range that runs into the future gets you a short clip with
+     * no error to explain it.
+     *
+     * @return array{camera: string, start: int, end: int}|null
+     */
+    public function clipRange(Event $event): ?array
+    {
+        $ended_at = $event->getEndedAt();
+        if ($ended_at === null)
+        {
+            return null;
+        }
+
+        return [
+            'camera' => $event->getCamera(),
+            'start' => $event->getStartedAt()->getTimestamp() - $this->clip_pre_roll_s,
+            'end' => $ended_at->getTimestamp() + $this->clip_post_roll_s,
+        ];
+    }
+
+    private function clipDurationSeconds(Event $event): ?int
+    {
+        $range = $this->clipRange($event);
+
+        return $range === null ? null : $range['end'] - $range['start'];
     }
 
     public function url(string $kind, string $id, ?int $now = null): string

@@ -45,7 +45,8 @@ class SyncFrigateEventsCommand extends Command
     {
         $this
             ->addOption('limit', 'l', InputOption::VALUE_REQUIRED, 'How many recent events to fetch', '100')
-            ->addOption('since', 's', InputOption::VALUE_REQUIRED, 'Only events after this unix timestamp');
+            ->addOption('since', 's', InputOption::VALUE_REQUIRED, 'Only events after this unix timestamp')
+            ->addOption('window-days', 'w', InputOption::VALUE_REQUIRED, 'How far back to mirror and reconcile', '7');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -53,11 +54,19 @@ class SyncFrigateEventsCommand extends Command
         $io = new SymfonyStyle($input, $output);
         $limit = max(1, min(500, (int) $input->getOption('limit')));
 
-        $query = ['limit' => $limit, 'include_thumbnails' => 0];
+        // An explicit window, not "the most recent N". Reconciling deletions needs a range
+        // whose contents we can be sure of, and "the last 100 events" is not one: an event
+        // deleted upstream simply falls off the end of that list and survives forever. A
+        // window has edges, and everything inside it can be compared.
+        $window_days = max(1, (int) $input->getOption('window-days'));
+        $window_start = time() - ($window_days * 86400);
+
         if ($input->getOption('since') !== null)
         {
-            $query['after'] = (int) $input->getOption('since');
+            $window_start = (int) $input->getOption('since');
         }
+
+        $query = ['limit' => $limit, 'include_thumbnails' => 0, 'after' => $window_start];
 
         try
         {
@@ -135,9 +144,79 @@ class SyncFrigateEventsCommand extends Command
 
         $this->entity_manager->flush();
 
-        $io->success(sprintf('Frigate sync: %d new, %d updated, %d seen.', $created, $updated, count($events)));
+        $removed = $this->reconcileDeletions($events, $window_start, $limit, $io);
+
+        $io->success(sprintf(
+            'Frigate sync: %d new, %d updated, %d removed, %d seen.',
+            $created,
+            $updated,
+            $removed,
+            count($events),
+        ));
 
         return Command::SUCCESS;
+    }
+
+    /**
+     * Removes local events that Frigate no longer has, within a window we can be sure of.
+     *
+     * Without this the mirror only ever grows: the sync inserts and updates, so anything
+     * deleted upstream -- by the app, by Frigate's own UI, or by retention -- stays in the
+     * feed forever with media that answers 404.
+     *
+     * Two guards, and the first one was originally wrong in an instructive way. Bounding
+     * the comparison to the span of the events that came back sounds safe, and means an
+     * event deleted *before* the oldest survivor is never in range: it falls off the end of
+     * the list and lives forever. The window has to be the one we asked for, not the one we
+     * happened to get.
+     *
+     * The second guard is the limit. A window that returned exactly `limit` events was
+     * truncated, so its older half is unaccounted for -- reconciling then would delete
+     * events that exist. Skip, and let a later run with a smaller window catch up.
+     *
+     * @param list<array<string, mixed>> $events
+     */
+    private function reconcileDeletions(array $events, int $window_start, int $limit, SymfonyStyle $io): int
+    {
+        if (count($events) >= $limit)
+        {
+            $io->warning(sprintf(
+                'Venster leverde %d events op de limiet van %d; opruimen overgeslagen om te voorkomen dat afgekapte events verdwijnen.',
+                count($events),
+                $limit,
+            ));
+
+            return 0;
+        }
+
+        $from = (new \DateTimeImmutable('@' . $window_start))->setTimezone(new \DateTimeZone('UTC'));
+        $seen = array_column($events, 'id');
+
+        $query = $this->event_repository->createQueryBuilder('e')
+            ->where('e.started_at >= :from')
+            ->setParameter('from', $from);
+
+        // NOT IN () is a syntax error, and an empty upstream window is exactly the case
+        // where every local event in it should go.
+        if ($seen !== [])
+        {
+            $query->andWhere('e.id NOT IN (:seen)')->setParameter('seen', $seen);
+        }
+
+        $stale = $query->getQuery()->getResult();
+
+        foreach ($stale as $event)
+        {
+            $io->writeln(sprintf('  weg bij Frigate, lokaal verwijderd: %s', $event->getId()));
+            $this->entity_manager->remove($event);
+        }
+
+        if ($stale !== [])
+        {
+            $this->entity_manager->flush();
+        }
+
+        return count($stale);
     }
 
     private function nullableString(mixed $value): ?string

@@ -12,10 +12,19 @@ export class HlsClient {
         this.emit = emit;
         this.video = videoEl;
         this.hls = null;
+        this.listeners = null;
     }
 
     async start(rung, { signal } = {}) {
         const { default: Hls } = await import('hls.js');
+
+        // Same gap MseClient had: the ladder's stall recovery is complete and nothing ever
+        // triggered it, so a rung that was buffering rather than dead looked healthy.
+        this.listeners = new AbortController();
+        const opts = { signal: this.listeners.signal };
+        this.video.addEventListener('waiting', () => this.emit('stalled'), opts);
+        this.video.addEventListener('stalled', () => this.emit('stalled'), opts);
+        this.video.addEventListener('playing', () => this.emit('resumed'), opts);
 
         if (Hls.isSupported()) {
             const hls = new Hls({ lowLatencyMode: true, liveSyncDurationCount: 2, backBufferLength: 30 });
@@ -43,6 +52,9 @@ export class HlsClient {
     }
 
     async stop() {
+        this.listeners?.abort();
+        this.listeners = null;
+
         this.hls?.destroy();
         this.hls = null;
 

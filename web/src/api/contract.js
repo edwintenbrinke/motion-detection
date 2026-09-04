@@ -35,6 +35,7 @@ export const EMPTY_MEDIA = Object.freeze({
     thumbnail: null,
     snapshot: null,
     clip: null,
+    clip_duration_s: null,
     expires_at: null,
 });
 
@@ -85,6 +86,9 @@ export function normaliseMedia(raw) {
         thumbnail: raw.thumbnail ?? null,
         snapshot: raw.snapshot ?? null,
         clip: raw.clip ?? null,
+        // The clip is padded either side of the event, so its length is not the event's.
+        // Null from an API that does not pad; the player falls back to duration_s.
+        clip_duration_s: asNumber(raw.clip_duration_s),
         expires_at: raw.expires_at ?? null,
     };
 }

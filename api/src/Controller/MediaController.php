@@ -3,8 +3,10 @@
 namespace App\Controller;
 
 use App\Security\JwtCookieAuthenticationSuccessHandler;
+use App\Repository\EventRepository;
 use App\Service\FrigateClient;
 use App\Service\MediaTokenService;
+use App\Service\MediaUrlBuilder;
 use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
 use Nelmio\ApiDocBundle\Attribute\Security;
 use OpenApi\Attributes as OA;
@@ -32,11 +34,14 @@ use Symfony\Component\Routing\Attribute\Route;
 class MediaController extends AbstractController
 {
     private const KINDS = ['thumbnail', 'snapshot', 'clip'];
+    private const KIND_CLIP_RANGE_CHECK = 'clip';
 
     public function __construct(
         private readonly MediaTokenService $media_token_service,
         private readonly FrigateClient $frigate_client,
         private readonly JWTTokenManagerInterface $jwt_manager,
+        private readonly EventRepository $event_repository,
+        private readonly MediaUrlBuilder $media_url_builder,
     ) {
     }
 
@@ -140,7 +145,18 @@ class MediaController extends AbstractController
             return $this->json(['message' => 'Invalid or expired media link'], Response::HTTP_FORBIDDEN);
         }
 
-        $upstream_path = $this->frigate_client->eventMediaPath($kind, $id);
+        // A clip is served from the padded time range rather than the bare event, so you
+        // see the approach and not just the arrival. The event has to exist locally for
+        // that -- without its start and end there is no range to ask for, and the
+        // unpadded event endpoint is the correct fallback rather than an error.
+        $range = null;
+        if ($kind === self::KIND_CLIP_RANGE_CHECK)
+        {
+            $event = $this->event_repository->find($id);
+            $range = $event !== null ? $this->media_url_builder->clipRange($event) : null;
+        }
+
+        $upstream_path = $this->frigate_client->eventMediaPath($kind, $id, $range);
         if ($upstream_path === null)
         {
             return $this->json(['message' => 'Unknown media kind'], Response::HTTP_NOT_FOUND);

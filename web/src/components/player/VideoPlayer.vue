@@ -66,7 +66,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onBeforeUnmount } from 'vue';
+import { ref, watch, onBeforeUnmount, computed } from 'vue';
 import { formatClock } from '@/lib/datetime.js';
 import { isMediaStale } from '@/api/contract.js';
 
@@ -85,6 +85,19 @@ const props = defineProps({
   /** ISO timestamp; a signed URL past it will 403 rather than play. */
   expiresAt: { type: String, default: null },
   autoplay: { type: Boolean, default: false },
+  /**
+   * Known clip length in seconds, for when the media does not carry one.
+   *
+   * Frigate serves clips as fragmented MP4 with no duration in the header and no
+   * Content-Length, so `video.duration` reports only what has been buffered so far and
+   * grows as it downloads -- a 3-second event measured 0.999367 in Chrome. Every reader of
+   * `duration` here (the clock, the scrubber's max, the skip clamp) was built on that.
+   *
+   * The app already knows the real answer: EventDetailView has the event, and
+   * `normaliseEvent()` computes `duration_s` from started_at/ended_at. So the fallback is
+   * not a guess, it is Frigate's own record of how long the thing lasted.
+   */
+  knownDuration: { type: Number, default: null },
 });
 
 const emit = defineEmits(['expired', 'ended', 'retry']);
@@ -96,8 +109,23 @@ const video = ref(null);
 const playing = ref(false);
 const started = ref(false);
 const failed = ref(false);
-const duration = ref(0);
+const mediaDuration = ref(0);
 const currentTime = ref(0);
+
+/**
+ * Prefer what the media says, but only when it is worth believing. `Infinity` is a live
+ * stream, `NaN` is not-yet-known, and a value shorter than the length we were told is the
+ * fragmented-MP4 case reporting its buffer rather than its length.
+ */
+const duration = computed(() => {
+  const media = mediaDuration.value;
+  const known = props.knownDuration;
+  const mediaUsable = Number.isFinite(media) && media > 0;
+
+  if (!mediaUsable) return Number.isFinite(known) && known > 0 ? known : 0;
+  if (Number.isFinite(known) && known > media) return known;
+  return media;
+});
 const rate = ref(1);
 const controlsVisible = ref(true);
 
@@ -181,7 +209,7 @@ function onLoadedMetadata() {
   const el = video.value;
   if (!el) return;
 
-  duration.value = el.duration ?? 0;
+  mediaDuration.value = el.duration ?? 0;
   el.playbackRate = rate.value;
 
   // Seeking is only legal once the duration is known, which is why the resume lives here

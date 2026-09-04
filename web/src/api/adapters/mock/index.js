@@ -95,6 +95,13 @@ export function createMockAdapter() {
             if (event) event.seen = true;
         },
 
+        async remove(id) {
+            await simulate();
+            const db = getDb();
+            const index = db.events.findIndex((candidate) => candidate.id === id);
+            if (index >= 0) db.events.splice(index, 1);
+        },
+
         async feedback(id, feedback) {
             await simulate();
             const event = getDb().events.find((candidate) => candidate.id === id);

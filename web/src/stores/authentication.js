@@ -138,6 +138,22 @@ export const useAuthStore = defineStore('auth', {
             await this.setAppInactive();
         },
 
+        /**
+         * The browser's version of "unlocked": there is no biometric factor to satisfy, so
+         * the token is the credential. Called only from the cold start, and only when the
+         * platform reports no biometry -- see lib/coldStart.js for why that distinction
+         * matters more than it looks.
+         *
+         * `biometricVerified` is set here because the router guard requires all three flags
+         * and one of them can never be earned on this platform. It is not pretending a
+         * fingerprint happened; it is recording that none is required.
+         */
+        async setAppActiveWithoutBiometry() {
+            await Preferences.set({ key: APP_STATE_KEYS.IS_APP_ACTIVE, value: 'true' });
+            await Preferences.set({ key: APP_STATE_KEYS.BIOMETRIC_VERIFIED, value: 'true' });
+            await this.touchLastActive();
+        },
+
         async isAppActive() {
             const { value } = await Preferences.get({ key: APP_STATE_KEYS.IS_APP_ACTIVE });
             return value === 'true';

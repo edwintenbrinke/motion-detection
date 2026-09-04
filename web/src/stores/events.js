@@ -195,6 +195,26 @@ export const useEventsStore = defineStore('events', {
             return event;
         },
 
+        /**
+         * Deletes an event, here and upstream.
+         *
+         * The row leaves the list only after the API confirms, not before. An optimistic
+         * removal would look better for the half-second it takes and then have to put a
+         * deleted-looking event back when Frigate refuses -- and the whole point of this
+         * action is that the user believes what it says.
+         */
+        async remove(id) {
+            await api.events.remove(id);
+
+            this.events = this.events.filter((event) => event.id !== id);
+            this.pendingNew = this.pendingNew.filter((event) => event.id !== id);
+            if (this.unreadCount > 0) {
+                // Cheaper and less wrong than recounting: only an unseen event can have
+                // been contributing to the badge.
+                this.unreadCount = Math.max(0, this.unreadCount - 1);
+            }
+        },
+
         mergeEvent(event) {
             const index = this.events.findIndex((candidate) => candidate.id === event.id);
             if (index === -1) {

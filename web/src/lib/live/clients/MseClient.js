@@ -20,8 +20,23 @@ const CANDIDATE_CODECS = [
     'opus',
 ];
 
-/** Seek forward if we drift this far behind live; live video is worthless when late. */
-const MAX_LAG_S = 2;
+/**
+ * Drift handling, in two bands.
+ *
+ * A hard seek on a live MSE stream is a visible hitch. The old code seeked whenever the
+ * buffer ran 2 s ahead, from `drain()`, which runs after *every* appended fragment --
+ * and fragments arrive in bursts through a tunnel, so it seeked constantly. That is what
+ * "smooth the first time, choppy after a refresh" was: a fresh connection starts at the
+ * live edge with nothing buffered; a reconnect to a running stream gets a backlog at once.
+ *
+ * So: close small drift by playing slightly faster, which is invisible, and keep the seek
+ * for a gap no amount of catching up will close.
+ */
+const NUDGE_LAG_S = 1.5;
+const SEEK_LAG_S = 10;
+const NUDGE_RATE = 1.05;
+/** At most one correction per this long, however many fragments arrive. */
+const KEEPUP_INTERVAL_MS = 3000;
 /** Keep at most this much history buffered, or a long session grows without bound. */
 const MAX_BUFFER_S = 60;
 
@@ -34,6 +49,8 @@ export class MseClient {
         this.sourceBuffer = null;
         this.queue = [];
         this.objectUrl = null;
+        this.listeners = null;
+        this.lastKeepUp = 0;
     }
 
     static supportedCodecs() {
@@ -54,19 +71,34 @@ export class MseClient {
         ws.binaryType = 'arraybuffer';
         this.ws = ws;
 
+        // Every listener below is bound to this controller, so `stop()` removes all of them
+        // with a single abort. The previous version set `ws.onclose = null`, which removes
+        // nothing at all from a listener added with addEventListener -- so closing the
+        // socket still fired an error into a ladder that had already moved on, and a
+        // refresh is exactly the moment that window is open.
+        this.listeners = new AbortController();
+        const opts = { signal: this.listeners.signal };
+
         signal?.addEventListener('abort', () => this.stop(), { once: true });
 
         await new Promise((resolve, reject) => {
-            ws.addEventListener('open', resolve, { once: true });
-            ws.addEventListener('error', () => reject(new Error('WebSocket kon niet openen')), { once: true });
+            ws.addEventListener('open', resolve, { once: true, ...opts });
+            ws.addEventListener('error', () => reject(new Error('WebSocket kon niet openen')), { once: true, ...opts });
             signal?.addEventListener('abort', () => reject(new DOMException('Afgebroken', 'AbortError')), { once: true });
         });
 
         ws.send(JSON.stringify({ type: 'mse', value: MseClient.supportedCodecs() }));
 
-        ws.addEventListener('message', (event) => this.onMessage(event));
-        ws.addEventListener('close', () => this.emit('error', new Error('WebSocket gesloten')));
-        ws.addEventListener('error', () => this.emit('error', new Error('WebSocket-fout')));
+        ws.addEventListener('message', (event) => this.onMessage(event), opts);
+        ws.addEventListener('close', () => this.emit('error', new Error('WebSocket gesloten')), opts);
+        ws.addEventListener('error', () => this.emit('error', new Error('WebSocket-fout')), opts);
+
+        // The ladder has a complete stall-recovery path that nothing ever triggered: no
+        // client emitted these. A stream that is degraded but not dead -- the choppy case --
+        // was therefore invisible to it.
+        this.video.addEventListener('waiting', () => this.emit('stalled'), opts);
+        this.video.addEventListener('stalled', () => this.emit('stalled'), opts);
+        this.video.addEventListener('playing', () => this.emit('resumed'), opts);
 
         waitForFirstFrame(this.video, { signal })
             .then(() => this.emit('firstFrame'))
@@ -146,9 +178,25 @@ export class MseClient {
         const buffered = this.sourceBuffer?.buffered;
         if (!el || !buffered?.length) return;
 
+        const now = Date.now();
+        if (now - this.lastKeepUp < KEEPUP_INTERVAL_MS) return;
+        this.lastKeepUp = now;
+
+        // Correcting a stream that is not actually playing turns a buffering pause into a
+        // jump, which is the same hitch for a worse reason.
+        if (el.paused || el.readyState < 3) return;
+
         const end = buffered.end(buffered.length - 1);
-        if (end - el.currentTime > MAX_LAG_S) {
+        const lag = end - el.currentTime;
+
+        if (lag > SEEK_LAG_S) {
+            // Far enough behind that no rate can close it. This is a desync, not jitter.
             el.currentTime = end - 0.5;
+            el.playbackRate = 1;
+        } else if (lag > NUDGE_LAG_S) {
+            el.playbackRate = NUDGE_RATE;
+        } else if (el.playbackRate !== 1) {
+            el.playbackRate = 1;
         }
 
         const start = buffered.start(0);
@@ -164,11 +212,12 @@ export class MseClient {
     async stop() {
         this.queue = [];
 
+        // One abort removes every listener registered in start(), including the close
+        // handler that would otherwise report an error about a socket we closed ourselves.
+        this.listeners?.abort();
+        this.listeners = null;
+
         if (this.ws) {
-            // Drop the handlers first, or closing the socket emits an error at a ladder
-            // that has already moved on.
-            this.ws.onclose = null;
-            this.ws.onerror = null;
             if (this.ws.readyState <= WebSocket.OPEN) this.ws.close();
             this.ws = null;
         }
