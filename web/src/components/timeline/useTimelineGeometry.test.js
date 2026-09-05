@@ -108,10 +108,16 @@ describe('timeline geometry', () => {
         });
     });
 
+    // Milliseconds, not strings. The adapter normalises before anything reaches this
+    // module (api/contract.js#normaliseTimelineDay); these tests used to be written
+    // against the mock's ISO strings, which is why a BFF sending unix seconds passed
+    // straight through them. docs/v2/13-timeline-and-players.md#a1.
+    const at = (iso) => Date.parse(iso);
+
     describe('recordings', () => {
         const ranges = [
-            { start: '2026-09-03T00:00:00Z', end: '2026-09-03T03:00:00Z', vod_url: 'a' },
-            { start: '2026-09-03T03:20:00Z', end: '2026-09-03T12:00:00Z', vod_url: 'b' },
+            { start_ms: at('2026-09-03T00:00:00Z'), end_ms: at('2026-09-03T03:00:00Z'), vod_url: 'a' },
+            { start_ms: at('2026-09-03T03:20:00Z'), end_ms: at('2026-09-03T12:00:00Z'), vod_url: 'b' },
         ];
 
         it('finds the range under a timestamp', () => {
@@ -137,7 +143,7 @@ describe('timeline geometry', () => {
     });
 
     describe('previews', () => {
-        const preview = { start: '2026-09-03T14:00:00Z', end: '2026-09-03T15:00:00Z' };
+        const preview = { start_ms: at('2026-09-03T14:00:00Z'), end_ms: at('2026-09-03T15:00:00Z') };
 
         it('seeks proportionally, since a preview file has no index', () => {
             expect(previewFraction(Date.parse('2026-09-03T14:30:00Z'), preview)).toBe(0.5);
@@ -150,7 +156,7 @@ describe('timeline geometry', () => {
         });
 
         it('does not divide by zero on a degenerate preview', () => {
-            expect(previewFraction(Date.now(), { start: 'x', end: 'y' })).toBe(0);
+            expect(previewFraction(Date.now(), { start_ms: 5, end_ms: 5 })).toBe(0);
         });
     });
 });

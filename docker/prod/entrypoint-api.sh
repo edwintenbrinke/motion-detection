@@ -10,10 +10,14 @@ set -eu
 # Kubernetes' DNS, so the Frigate Service is re-resolved rather than pinned to whatever IP
 # it had when nginx started. Overridable for running this outside a cluster.
 : "${DNS_RESOLVER:=kube-dns.kube-system.svc.cluster.local}"
+# The origin the app is served from, for CORS on media that leaves through X-Accel-Redirect
+# (hls.js fetches segments over XHR; an <img> or <video> does not need this). Empty means
+# no header, which is correct when the app and the API share an origin.
+: "${APP_ORIGIN:=}"
 
-export FRIGATE_HOST GO2RTC_HOST DNS_RESOLVER
+export FRIGATE_HOST GO2RTC_HOST DNS_RESOLVER APP_ORIGIN
 
-envsubst '${FRIGATE_HOST} ${GO2RTC_HOST} ${DNS_RESOLVER}' \
+envsubst '${FRIGATE_HOST} ${GO2RTC_HOST} ${DNS_RESOLVER} ${APP_ORIGIN}' \
     < /etc/nginx/templates/motion-api.conf.template \
     > /etc/nginx/conf.d/motion-api.conf
 

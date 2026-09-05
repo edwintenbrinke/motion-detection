@@ -27,7 +27,7 @@ class MediaUrlBuilder
     }
 
     /**
-     * @return array{thumbnail: ?string, snapshot: ?string, clip: ?string, clip_duration_s: ?int, expires_at: ?string}
+     * @return array{thumbnail: ?string, snapshot: ?string, clip: ?string, clip_hls: ?string, clip_duration_s: ?int, expires_at: ?string}
      */
     public function forEvent(Event $event, ?int $now = null): array
     {
@@ -49,6 +49,15 @@ class MediaUrlBuilder
             'thumbnail' => $thumbnail,
             'snapshot' => $snapshot,
             'clip' => $clip,
+            // The same padded window as an HLS playlist, which is the one the player should
+            // prefer. `clip` above is a progressive mux from Frigate: it answers 200 to a
+            // ranged GET, carries no Content-Length and no duration, and therefore cannot
+            // be seeked -- the scrub bar moves and the picture does not. The VOD playlist
+            // lists every segment with its duration, so seeking is "fetch the segment
+            // covering t". The mp4 stays for download, sharing, and as the fallback for a
+            // range whose recording segments retention has already removed.
+            // See docs/v2/13-timeline-and-players.md#b1.
+            'clip_hls' => $clip !== null ? $this->clipPlaylistUrl($event) : null,
             // The clip is padded either side, so its length is not the event's. The player
             // needs this: Frigate's fMP4 carries no duration, so without a number to trust
             // the scrubber reads whatever has buffered so far.
@@ -79,6 +88,41 @@ class MediaUrlBuilder
             'start' => $event->getStartedAt()->getTimestamp() - $this->clip_pre_roll_s,
             'end' => $ended_at->getTimestamp() + $this->clip_post_roll_s,
         ];
+    }
+
+    /**
+     * The event's padded window as an HLS playlist, on the timeline's own media route.
+     *
+     * Signed as ('timeline', <camera>) rather than ('clip', <event id>) because that is what
+     * TimelineMediaController verifies, and because the segments the playlist names belong
+     * to the camera, not to the event -- there is one gate and it is per camera. Reusing
+     * that route also means the playlist arrives with the signature appended to every
+     * segment URI it lists, which is the only reason the segments are fetchable at all
+     * (docs/v2/13-timeline-and-players.md#a2).
+     */
+    private function clipPlaylistUrl(Event $event): ?string
+    {
+        $range = $this->clipRange($event);
+        if ($range === null)
+        {
+            return null;
+        }
+
+        $token = $this->media_token_service->sign(
+            'timeline',
+            $range['camera'],
+            null,
+            MediaTokenService::TIMELINE_TTL_S,
+        );
+
+        return sprintf(
+            '/api/timeline/%s/vod/%d/%d/index.m3u8?exp=%d&sig=%s',
+            rawurlencode($range['camera']),
+            $range['start'],
+            $range['end'],
+            $token['exp'],
+            $token['sig'],
+        );
     }
 
     private function clipDurationSeconds(Event $event): ?int

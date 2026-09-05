@@ -36,7 +36,7 @@ class EventOutputDTO
     /**
      * @param list<string> $zones
      * @param list<string> $derived_tags
-     * @param array{thumbnail: ?string, snapshot: ?string, clip: ?string, expires_at: ?string} $media
+     * @param array{thumbnail: ?string, snapshot: ?string, clip: ?string, clip_hls: ?string, clip_duration_s: ?int, expires_at: ?string} $media
      */
     public function __construct(
         string $id,

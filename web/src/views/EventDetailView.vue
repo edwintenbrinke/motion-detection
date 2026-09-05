@@ -14,6 +14,7 @@
       <VideoPlayer
           v-if="event.has_clip"
           :src="event.media.clip"
+          :hls-src="event.media.clip_hls"
           :poster="event.media.snapshot"
           :expires-at="event.media.expires_at"
           :known-duration="clipDuration"
@@ -152,9 +153,11 @@ const event = computed(() => store.byId(eventId.value));
  *
  * The API pads clips by a few seconds either side (docs/v2/12-open-work.md §6) and reports
  * the padded length as `media.clip_duration_s`. Falling back to the event's own duration
- * keeps this correct against an older API that does not pad; falling back to nothing would
- * put us back on `video.duration`, which for a fragmented MP4 is the size of the buffer
- * rather than the length of the clip.
+ * keeps this correct against an older API that does not pad.
+ *
+ * With `media.clip_hls` the player has a playlist that states its own length and this is
+ * only a fallback -- but it is still the right fallback for the mp4 path, where
+ * `video.duration` is the size of the buffer rather than the length of the clip.
  */
 const confirmDelete = ref(false);
 const deleting = ref(false);

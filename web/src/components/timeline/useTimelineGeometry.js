@@ -106,26 +106,26 @@ export function ticks({ width, windowMs, centerTs, dayStart = 0 }) {
     return result;
 }
 
-/** The recording range covering a timestamp, or null when it falls in a gap. */
+/**
+ * The recording range covering a timestamp, or null when it falls in a gap.
+ *
+ * Every span here carries `start_ms`/`end_ms` -- numbers, normalised at the adapter by
+ * `normaliseTimelineDay()`. This module used to call `Date.parse()` on whatever it was
+ * handed, which is how a BFF that sends unix seconds emptied the entire page without
+ * raising anything (docs/v2/13-timeline-and-players.md#a1).
+ */
 export function rangeAt(ts, ranges) {
-    return (
-        ranges.find((range) => {
-            const start = Date.parse(range.start);
-            const end = Date.parse(range.end);
-            return ts >= start && ts < end;
-        }) ?? null
-    );
+    return ranges.find((range) => ts >= range.start_ms && ts < range.end_ms) ?? null;
 }
 
 /** How far into a recording a timestamp is, in seconds. */
 export function offsetInRange(ts, range) {
-    return Math.max(0, (ts - Date.parse(range.start)) / 1000);
+    return Math.max(0, (ts - range.start_ms) / 1000);
 }
 
 /** Seeking inside an hourly preview file is proportional: previews have no index. */
 export function previewFraction(ts, preview) {
-    const start = Date.parse(preview.start);
-    const end = Date.parse(preview.end);
+    const { start_ms: start, end_ms: end } = preview;
     if (!(end > start)) return 0;
     return Math.min(1, Math.max(0, (ts - start) / (end - start)));
 }

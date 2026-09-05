@@ -8,6 +8,8 @@ function withAbsoluteMedia(event) {
             thumbnail: absolute(event.media.thumbnail),
             snapshot: absolute(event.media.snapshot),
             clip: absolute(event.media.clip),
+            clip_hls: absolute(event.media.clip_hls),
+            clip_duration_s: event.media.clip_duration_s,
             expires_at: event.media.expires_at,
         },
     };

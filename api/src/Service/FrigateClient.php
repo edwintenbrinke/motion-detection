@@ -412,6 +412,22 @@ class FrigateClient
     /**
      * @return array<string, mixed>
      */
+    /**
+     * The body of a small upstream file, as text.
+     *
+     * Deliberately narrow: everything else here returns a *path* so nginx can move the
+     * bytes without PHP touching them. An HLS playlist is the one exception, because it
+     * has to be rewritten before it is useful -- it names its segments relatively, and a
+     * relative URL drops the query string that authenticated the playlist.
+     * See docs/v2/13-timeline-and-players.md#a2.
+     */
+    public function fetchText(string $path): string
+    {
+        $response = $this->http_client->request('GET', $this->baseUrl() . $path, ['timeout' => 10]);
+
+        return $response->getContent();
+    }
+
     private function getJson(string $path): array
     {
         $response = $this->http_client->request('GET', $this->baseUrl() . $path, [

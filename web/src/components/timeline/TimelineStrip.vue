@@ -27,7 +27,7 @@ const props = defineProps({
   events: { type: Array, default: () => [] },
 });
 
-const emit = defineEmits(['update:centerTs', 'update:windowMs', 'scrub-start', 'scrub', 'scrub-end', 'tap-event']);
+const emit = defineEmits(['update:centerTs', 'update:windowMs', 'scrub-start', 'scrub-end', 'tap-event']);
 
 const MARKER_HIT_PX = 14;
 
@@ -89,8 +89,8 @@ function draw() {
 
   ctx.fillStyle = colour('--app-border-strong', '#3b444e');
   for (const range of props.recordings) {
-    const x1 = timeToX(Date.parse(range.start), view());
-    const x2 = timeToX(Date.parse(range.end), view());
+    const x1 = timeToX(range.start_ms, view());
+    const x2 = timeToX(range.end_ms, view());
     ctx.fillRect(x1, trackTop, Math.max(1, x2 - x1), trackHeight);
   }
 
@@ -108,7 +108,7 @@ function draw() {
   // Event markers, alerts on top of detections so they are never hidden behind one.
   const alerts = [];
   for (const event of props.events) {
-    const x = timeToX(Date.parse(event.start), view());
+    const x = timeToX(event.start_ms, view());
     if (x < -8 || x > width + 8) continue;
     if (event.severity === 'alert') {
       alerts.push(x);
@@ -186,7 +186,6 @@ function onPointerMove(event) {
 
   gesture.centerTs = clampCenter(panCenter(gesture.centerTs, dx, view()), props);
   emit('update:centerTs', gesture.centerTs);
-  emit('scrub', gesture.centerTs);
   scheduleDraw();
 }
 
@@ -224,7 +223,7 @@ function markerAt(x) {
   let bestDistance = MARKER_HIT_PX;
 
   for (const event of props.events) {
-    const distance = Math.abs(timeToX(Date.parse(event.start), view()) - x);
+    const distance = Math.abs(timeToX(event.start_ms, view()) - x);
     if (distance < bestDistance) {
       bestDistance = distance;
       best = event;

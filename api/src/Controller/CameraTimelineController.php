@@ -67,7 +67,10 @@ class CameraTimelineController extends AbstractController
         $before = $end->getTimestamp();
 
         $now = time();
-        $token = $this->media_token_service->sign('timeline', $camera, $now);
+        // An hour rather than the default ten minutes: the previews and the playlists this
+        // signs are fetched for as long as someone keeps scrubbing, not once.
+        // See docs/v2/13-timeline-and-players.md#a2.
+        $token = $this->media_token_service->sign('timeline', $camera, $now, MediaTokenService::TIMELINE_TTL_S);
         $query = sprintf('exp=%d&sig=%s', $token['exp'], $token['sig']);
 
         try
@@ -108,7 +111,7 @@ class CameraTimelineController extends AbstractController
      *
      * @param list<array<string, mixed>> $recordings
      *
-     * @return list<array{start: int, end: int, vod_url: string}>
+     * @return list<array{start: string, end: string, vod_url: string}>
      */
     private function groupRecordings(array $recordings, string $camera, string $query): array
     {
@@ -144,9 +147,12 @@ class CameraTimelineController extends AbstractController
         }
 
         return array_map(
+            // The times go out as ATOM like every other timestamp in this API; the unix
+            // seconds stay inside the URL, because that is Frigate's path format and not
+            // part of our contract.
             fn (array $span): array => [
-                'start' => (int) floor($span['start']),
-                'end' => (int) ceil($span['end']),
+                'start' => $this->iso((int) floor($span['start'])),
+                'end' => $this->iso((int) ceil($span['end'])),
                 'vod_url' => sprintf(
                     '/api/timeline/%s/vod/%d/%d/index.m3u8?%s',
                     rawurlencode($camera),
@@ -162,7 +168,7 @@ class CameraTimelineController extends AbstractController
     /**
      * @param list<array<string, mixed>> $previews
      *
-     * @return list<array{start: float, end: float, preview_url: string}>
+     * @return list<array{start: string, end: string, preview_url: string}>
      */
     private function mapPreviews(array $previews, string $query): array
     {
@@ -176,8 +182,8 @@ class CameraTimelineController extends AbstractController
             }
 
             $mapped[] = [
-                'start' => (float) ($preview['start'] ?? 0),
-                'end' => (float) ($preview['end'] ?? 0),
+                'start' => $this->iso((float) ($preview['start'] ?? 0)),
+                'end' => $this->iso((float) ($preview['end'] ?? 0)),
                 // Frigate's own path, signed and served back through our proxy. Passing the
                 // path through rather than rebuilding it keeps us out of guessing its
                 // filename convention, which is not part of any contract.
@@ -189,7 +195,7 @@ class CameraTimelineController extends AbstractController
     }
 
     /**
-     * @return list<array{id: string, start: int, end: ?int, label: string, severity: string}>
+     * @return list<array{id: string, start: string, end: ?string, label: string, severity: string}>
      */
     private function eventsBetween(string $camera, \DateTimeImmutable $start, \DateTimeImmutable $end): array
     {
@@ -205,14 +211,31 @@ class CameraTimelineController extends AbstractController
             ->getResult();
 
         return array_map(
-            static fn ($event): array => [
+            fn ($event): array => [
                 'id' => $event->getId(),
-                'start' => $event->getStartedAt()->getTimestamp(),
-                'end' => $event->getEndedAt()?->getTimestamp(),
+                'start' => $this->iso($event->getStartedAt()->getTimestamp()),
+                'end' => $event->getEndedAt() !== null ? $this->iso($event->getEndedAt()->getTimestamp()) : null,
                 'label' => $event->getLabel(),
                 'severity' => $event->getSeverity()->value,
             ],
             $events,
         );
+    }
+
+    /**
+     * Unix seconds in, ATOM out.
+     *
+     * Frigate speaks unix seconds and every other endpoint in this API speaks ATOM
+     * (EventOutputDTO, and `expires_at` in this very response). The conversion has to
+     * happen somewhere, and this is the boundary. It used to happen nowhere, and the app
+     * read these three arrays with `Date.parse()` -- which turns a number into NaN, which
+     * draws an empty strip and finds no recording under the playhead, with no error
+     * anywhere. See docs/v2/13-timeline-and-players.md#a1.
+     */
+    private function iso(float $unix): string
+    {
+        return (new \DateTimeImmutable('@' . (int) round($unix)))
+            ->setTimezone(new \DateTimeZone('UTC'))
+            ->format(\DateTimeInterface::ATOM);
     }
 }

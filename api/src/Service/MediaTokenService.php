@@ -14,6 +14,17 @@ namespace App\Service;
  */
 class MediaTokenService
 {
+    /**
+     * The timeline signs for longer than the default ten minutes.
+     *
+     * A scrubbing session is not a single request: the playlist hands out signed segment
+     * URLs and the player keeps fetching them for as long as someone watches. At ten
+     * minutes, playback dies mid-clip with a 403 the player cannot explain. An hour, scoped
+     * to one camera and one day, is the trade this is worth.
+     * See docs/v2/13-timeline-and-players.md#a2.
+     */
+    public const TIMELINE_TTL_S = 3600;
+
     public function __construct(
         private readonly string $signing_key,
         private readonly int $ttl_seconds = 600,
@@ -25,11 +36,13 @@ class MediaTokenService
     }
 
     /**
+     * @param int|null $ttl_seconds Overrides the default lifetime; see TIMELINE_TTL_S
+     *
      * @return array{exp: int, sig: string}
      */
-    public function sign(string $kind, string $id, ?int $now = null): array
+    public function sign(string $kind, string $id, ?int $now = null, ?int $ttl_seconds = null): array
     {
-        $exp = ($now ?? time()) + $this->ttl_seconds;
+        $exp = ($now ?? time()) + ($ttl_seconds ?? $this->ttl_seconds);
 
         return [
             'exp' => $exp,

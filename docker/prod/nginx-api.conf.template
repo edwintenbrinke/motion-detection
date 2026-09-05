@@ -74,6 +74,20 @@ server {
         proxy_hide_header Set-Cookie;
         proxy_hide_header X-Accel-Redirect;
         proxy_buffering off;
+
+        # CORS, for the one consumer here that needs it.
+        #
+        # <img src> and <video src> are not CORS requests and never were. hls.js is: it
+        # fetches every segment over XHR, from motion.* to api.*, and a missing
+        # Access-Control-Allow-Origin fails it in a way indistinguishable from a 403. The
+        # headers Symfony set on the reply that produced this X-Accel-Redirect do not
+        # survive it -- Frigate's own response headers are what nginx has at this point.
+        #
+        # Empty APP_ORIGIN means the header is not added at all (nginx skips an add_header
+        # whose value is empty), which is the right default for a single-origin setup.
+        # See docs/v2/13-timeline-and-players.md#a2.
+        add_header Access-Control-Allow-Origin "${APP_ORIGIN}" always;
+        add_header Vary Origin always;
     }
 
     # ---------------------------------------------------------------------------------

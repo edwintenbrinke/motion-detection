@@ -5,10 +5,42 @@
       <input class="date" type="date" :value="date" :max="today" @change="onDateChange" />
     </header>
 
+    <!-- Only worth the row when there is a choice to make. -->
+    <div v-if="cameras.length > 1" class="cameras">
+      <button
+          v-for="option in cameras"
+          :key="option.name"
+          type="button"
+          class="chip"
+          :class="{ on: option.name === camera }"
+          @click="selectCamera(option.name)"
+      >{{ option.display_name }}</button>
+    </div>
+
+    <!--
+      Live is torn down when you leave it -- a stream nobody is watching should stop. The
+      other two stay mounted and are shown or hidden, so a drag does not throw away the
+      preview hour it just downloaded (docs/v2/13-timeline-and-players.md#a3).
+    -->
     <div class="stage">
       <LivePlayer v-if="mode === 'live'" :camera="camera" />
-      <TimelinePreview v-else-if="mode === 'scrub'" :previews="day.previews" :ts="centerTs" />
-      <RecordingPlayer v-else ref="recording" />
+
+      <div v-show="mode === 'scrub'" class="surface">
+        <TimelinePreview :previews="day.previews" :ts="centerTs" :active="mode === 'scrub'" />
+      </div>
+
+      <div v-show="mode === 'recording'" class="surface">
+        <VideoPlayer
+            :hls-src="currentRange?.vod_url ?? null"
+            :start-at="recordingOffset"
+            :expires-at="day.expires_at"
+            :active="mode === 'recording'"
+            :autoplay="mode === 'recording'"
+            error-text="Opname niet beschikbaar"
+            @expired="reloadAndResume"
+            @retry="reloadAndResume"
+        />
+      </div>
 
       <div v-if="mode === 'recording' && !currentRange" class="gap">
         <i class="pi pi-video-slash" aria-hidden="true"></i>
@@ -47,7 +79,7 @@
       <li v-for="event in nearbyEvents" :key="event.id">
         <button type="button" @click="openEvent(event)">
           <span class="marker-dot" :class="event.severity"></span>
-          <span class="marker-time">{{ formatTime(event.start) }}</span>
+          <span class="marker-time">{{ formatTime(event.start_ms) }}</span>
           <span class="marker-label">{{ labelNl(event.label) }}</span>
         </button>
       </li>
@@ -64,12 +96,13 @@ import { labelNl } from '@/lib/eventPresenter.js';
 import { rangeAt, offsetInRange, HOUR_MS, DAY_MS, MINUTE_MS } from '@/components/timeline/useTimelineGeometry.js';
 import TimelineStrip from '@/components/timeline/TimelineStrip.vue';
 import TimelinePreview from '@/components/timeline/TimelinePreview.vue';
-import RecordingPlayer from '@/components/timeline/RecordingPlayer.vue';
+import VideoPlayer from '@/components/player/VideoPlayer.vue';
 import LivePlayer from '@/components/live/LivePlayer.vue';
 
 const router = useRouter();
 
-const camera = ref('voordeur');
+const cameras = ref([]);
+const camera = ref('');
 const date = ref(toDateKey(Date.now()));
 const today = toDateKey(Date.now());
 
@@ -81,7 +114,12 @@ const centerTs = ref(Date.now());
 const windowMs = ref(HOUR_MS);
 /** 'live' while following now, 'scrub' during a drag, 'recording' after letting go. */
 const mode = ref('live');
-const recording = ref(null);
+/**
+ * Seconds into the current recording span. The player is prop-driven, so the position is
+ * state here rather than an imperative `play(url, offset)` call -- which is what let the
+ * timeline and the event page end up as one component instead of two.
+ */
+const recordingOffset = ref(0);
 
 const dayStart = computed(() => new Date(`${date.value}T00:00:00`).getTime());
 const dayEnd = computed(() => Math.min(dayStart.value + DAY_MS, Date.now()));
@@ -99,11 +137,13 @@ const zoomLabel = computed(() => {
 const nearbyEvents = computed(() => {
   const half = Math.max(windowMs.value, HOUR_MS) / 2;
   return day.value.events
-      .filter((event) => Math.abs(Date.parse(event.start) - centerTs.value) <= half)
+      .filter((event) => Math.abs(event.start_ms - centerTs.value) <= half)
       .slice(0, 12);
 });
 
 async function load() {
+  if (!camera.value) return;
+
   loading.value = true;
   loadError.value = null;
 
@@ -115,6 +155,27 @@ async function load() {
   } finally {
     loading.value = false;
   }
+}
+
+/**
+ * The camera list, rather than a hard-coded name. There is one camera today, which is why
+ * the old constant was honest -- but the day the second one appears, a page that cannot
+ * name it is a page that shows the wrong one.
+ */
+async function loadCameras() {
+  try {
+    cameras.value = await api.cameras.list();
+  } catch {
+    cameras.value = [];
+  }
+  camera.value = cameras.value[0]?.name ?? '';
+}
+
+function selectCamera(name) {
+  if (name === camera.value) return;
+  camera.value = name;
+  mode.value = date.value === today ? 'live' : 'recording';
+  load();
 }
 
 function onDateChange(event) {
@@ -131,13 +192,21 @@ function onScrubStart() {
 
 function onScrubEnd(ts) {
   const range = rangeAt(ts, day.value.recordings);
+  // The player follows `currentRange` and `recordingOffset`; setting them is the whole of
+  // "start playing here".
+  recordingOffset.value = range ? offsetInRange(ts, range) : 0;
   mode.value = 'recording';
+}
 
-  if (!range) return;
-  // The ref only exists after the mode switch renders the player.
-  requestAnimationFrame(() => {
-    recording.value?.play(range.vod_url, offsetInRange(ts, range));
-  });
+/**
+ * A failed recording is almost always an expired signature, and only a fresh day response
+ * re-signs it. So the retry reloads the day and picks playback up where it was, rather than
+ * asking the player to try the same dead URL again.
+ */
+async function reloadAndResume() {
+  const ts = centerTs.value;
+  await load();
+  onScrubEnd(ts);
 }
 
 function goLive() {
@@ -151,7 +220,11 @@ function openEvent(event) {
 }
 
 watch(date, load);
-onMounted(load);
+
+onMounted(async () => {
+  await loadCameras();
+  await load();
+});
 </script>
 
 <style scoped>
@@ -184,11 +257,42 @@ onMounted(load);
   font-size: 13px;
 }
 
+/* Same chip as the events filter bar, so one selection idiom rather than two. */
+.cameras {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 var(--app-space-4) var(--app-space-2);
+}
+
+.chip {
+  padding: 4px 11px;
+  border: 1px solid var(--app-border-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--app-text-muted);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.chip.on {
+  border-color: var(--app-accent);
+  background: rgba(242, 177, 52, 0.14);
+  color: var(--app-accent);
+}
+
 .stage {
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
   background: #000;
+}
+
+.surface {
+  position: absolute;
+  inset: 0;
 }
 
 .gap {

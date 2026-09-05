@@ -3,6 +3,7 @@ import { createMockAdapter } from './index.js';
 import { resetDb, getDb } from './db.js';
 import { setMockSettings, resetMockSettings } from './settings.js';
 import { NetworkError } from '@/api/errors.js';
+import { toDateKey } from '@/lib/datetime.js';
 
 const api = createMockAdapter();
 
@@ -238,15 +239,31 @@ describe('mock adapter', () => {
             const day = await api.timeline.getDay('voordeur', date);
 
             expect(day.recordings.length).toBe(2);
-            expect(Date.parse(day.recordings[1].start)).toBeGreaterThan(Date.parse(day.recordings[0].end));
+            expect(day.recordings[1].start_ms).toBeGreaterThan(day.recordings[0].end_ms);
             expect(day.previews.length).toBe(24);
-            expect(day.events.every((e) => e.start.startsWith(date))).toBe(true);
+            expect(day.events.every((e) => toDateKey(e.start_ms) === date)).toBe(true);
+        });
+
+        // The whole point of routing the mock through normaliseTimelineDay: if this
+        // adapter can emit something the strip cannot draw, so can the real one, and the
+        // mock is the half nobody notices is wrong (docs/v2/13-timeline-and-players.md#a1).
+        it('emits milliseconds, not strings, on every timestamp the strip reads', async () => {
+            const date = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+            const day = await api.timeline.getDay('voordeur', date);
+
+            const times = [
+                ...day.recordings.flatMap((r) => [r.start_ms, r.end_ms]),
+                ...day.previews.flatMap((p) => [p.start_ms, p.end_ms]),
+                ...day.events.map((e) => e.start_ms),
+            ];
+            expect(times.length).toBeGreaterThan(0);
+            expect(times.every((t) => typeof t === 'number' && Number.isFinite(t))).toBe(true);
         });
 
         it('orders markers forward in time, the way the strip draws them', async () => {
             const date = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
             const day = await api.timeline.getDay('voordeur', date);
-            const starts = day.events.map((e) => Date.parse(e.start));
+            const starts = day.events.map((e) => e.start_ms);
             expect([...starts].sort((a, b) => a - b)).toEqual(starts);
         });
     });

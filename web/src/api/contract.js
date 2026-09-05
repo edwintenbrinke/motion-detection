@@ -7,7 +7,8 @@
  * @typedef {Object} EventMedia
  * @property {string|null} thumbnail  Signed URL for the feed thumbnail
  * @property {string|null} snapshot   Signed URL for the full still
- * @property {string|null} clip       Signed URL for the mp4, Range-capable
+ * @property {string|null} clip       Signed URL for the mp4. Progressive, NOT seekable
+ * @property {string|null} clip_hls   Signed HLS playlist for the same window. Seekable
  * @property {string|null} expires_at ISO timestamp; all three expire together
  *
  * @typedef {Object} MotionEvent
@@ -35,6 +36,7 @@ export const EMPTY_MEDIA = Object.freeze({
     thumbnail: null,
     snapshot: null,
     clip: null,
+    clip_hls: null,
     clip_duration_s: null,
     expires_at: null,
 });
@@ -86,6 +88,12 @@ export function normaliseMedia(raw) {
         thumbnail: raw.thumbnail ?? null,
         snapshot: raw.snapshot ?? null,
         clip: raw.clip ?? null,
+        // The playlist for the same window, which is the one the player should prefer: the
+        // mp4 is a progressive mux with no Range support and no duration, so it cannot be
+        // seeked. Null from an API that does not serve one yet, and the player falls back
+        // to the mp4 -- unseekable, but it plays.
+        // See docs/v2/13-timeline-and-players.md#b1.
+        clip_hls: raw.clip_hls ?? null,
         // The clip is padded either side of the event, so its length is not the event's.
         // Null from an API that does not pad; the player falls back to duration_s.
         clip_duration_s: asNumber(raw.clip_duration_s),
@@ -124,6 +132,90 @@ export function isMediaStale(media, now = Date.now(), margin = MEDIA_STALE_MARGI
     const parsed = Date.parse(expiresAt);
     if (!Number.isFinite(parsed)) return true;
     return parsed - now < margin;
+}
+
+// -- Timeline ----------------------------------------------------------------------------
+//
+// The scrubber is pure maths on milliseconds (components/timeline/useTimelineGeometry.js).
+// It should never have been handed a string to parse: the BFF sent unix seconds, every
+// caller ran `Date.parse()` on them, and NaN drew an empty strip without raising anything.
+// Parsing happens here instead, once, with a test -- see docs/v2/13-timeline-and-players.md.
+
+/**
+ * Milliseconds since the epoch, from unix seconds, milliseconds, or an ISO string.
+ *
+ * Both shapes are accepted deliberately: the API now sends ATOM, older deployments send
+ * numbers, and the mock sends ISO. A normaliser that only understood the newest of the
+ * three would put the app back in the state this function exists to fix.
+ *
+ * @returns {number|null} null when there is nothing usable, never NaN.
+ */
+export function asEpochMs(value) {
+    if (value === null || value === undefined || value === '') return null;
+
+    if (typeof value === 'number') {
+        if (!Number.isFinite(value)) return null;
+        // 1e11 ms is 1973 and 1e11 s is the year 5138, so nothing real is ambiguous.
+        return value < 1e11 ? Math.round(value * 1000) : Math.round(value);
+    }
+
+    if (typeof value !== 'string') return null;
+
+    // A numeric string is still a number; `Date.parse` would answer NaN for it.
+    if (/^-?\d+(\.\d+)?$/.test(value)) return asEpochMs(Number(value));
+
+    const parsed = Date.parse(value);
+    return Number.isNaN(parsed) ? null : parsed;
+}
+
+/**
+ * One day of timeline, in the shape the strip actually wants.
+ *
+ * Ranges whose times do not normalise are dropped rather than passed through: one malformed
+ * span should cost you that span, not the whole day.
+ *
+ * @returns {{camera: string, date: string, expires_at: string|null,
+ *            recordings: Array<{start_ms: number, end_ms: number, vod_url: string}>,
+ *            previews: Array<{start_ms: number, end_ms: number, preview_url: string}>,
+ *            events: Array<{id: string, start_ms: number, end_ms: number|null, label: string|null, severity: string}>}}
+ */
+export function normaliseTimelineDay(raw, camera = '', date = '') {
+    const spans = (list, urlKey) =>
+        (Array.isArray(list) ? list : [])
+            .map((item) => {
+                const start_ms = asEpochMs(item?.start ?? item?.start_ms);
+                const end_ms = asEpochMs(item?.end ?? item?.end_ms);
+                if (start_ms === null || end_ms === null || end_ms <= start_ms) return null;
+                return { start_ms, end_ms, [urlKey]: item?.[urlKey] ?? null };
+            })
+            .filter((item) => item !== null && item[urlKey])
+            .sort((a, b) => a.start_ms - b.start_ms);
+
+    const events = (Array.isArray(raw?.events) ? raw.events : [])
+        .map((item) => {
+            const start_ms = asEpochMs(item?.start ?? item?.start_ms ?? item?.started_at);
+            if (start_ms === null || item?.id === undefined || item?.id === null) return null;
+            return {
+                id: String(item.id),
+                start_ms,
+                // An event that has not ended yet has no end, which is different from a
+                // broken one; both normalise to null and neither is drawn as a span.
+                end_ms: asEpochMs(item?.end ?? item?.end_ms ?? item?.ended_at),
+                label: item?.label ?? null,
+                severity: item?.severity === 'alert' ? 'alert' : 'detection',
+            };
+        })
+        .filter((event) => event !== null)
+        .sort((a, b) => a.start_ms - b.start_ms);
+
+    return {
+        camera: raw?.camera ?? camera,
+        date: raw?.date ?? date,
+        expires_at: raw?.expires_at ?? null,
+        recordings: spans(raw?.recordings, 'vod_url'),
+        previews: spans(raw?.previews, 'preview_url'),
+        events,
+    };
 }
 
 // -- Live sources ------------------------------------------------------------------------

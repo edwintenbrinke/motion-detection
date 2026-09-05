@@ -4,13 +4,20 @@
 document is kept as the record of what was wrong and why, because the causes turned out to
 be worth more than the fixes: most of them were things that looked correct and were not.
 
+> **Correction (2026-09-05).** §3 and §5 were verified at the API, with `curl`, and never in
+> the browser. Both are broken there, for reasons that never reach the API: the timeline
+> endpoint sends unix seconds to an app that parses ISO strings, and Frigate's `clip.mp4` is
+> a progressive mux that cannot be seeked. Read
+> [13-timeline-and-players.md](13-timeline-and-players.md) before trusting either row below
+> — and note that the lesson at the top of this file was applied one layer too shallow.
+
 | # | What | Status |
 |---|---|---|
 | 1 | Refreshing the page logs you out | ✅ stays logged in across three reloads |
 | 2 | Live view is choppy after a refresh | ✅ 5/5 refreshes, playbackRate 1, no seeking |
-| 3 | Clip player shows the wrong time | ✅ real duration from the event |
+| 3 | Clip player shows the wrong time | ⚠️ duration is right; **seeking still does not work** — see [13](13-timeline-and-players.md) |
 | 4 | Zones and motion masks | ✅ create, read and delete, applied by Frigate |
-| 5 | Timeline | ✅ 7 spans, 5 previews, 12 events, HLS through the gate |
+| 5 | Timeline | ⚠️ API verified; **the page is broken in the browser** — see [13](13-timeline-and-players.md) |
 | 6 | A few seconds of buffer around each clip | ✅ a 4 s event gives a 14.03 s clip |
 | 7 | Deleting events | ✅ gone from Frigate and the app, no resurrection |
 | 8 | Grafana dashboard | ✅ scraping, 4 alerts loaded, panels drawing |

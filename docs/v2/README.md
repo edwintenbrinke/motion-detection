@@ -77,3 +77,4 @@ Two hardware facts drive a lot of the design and are easy to get wrong:
 
 - [11-deployment.md](11-deployment.md) — how the app is deployed on the cluster, and how media stays reachable only through it
 | [12-open-work.md](12-open-work.md) | What is broken, what is missing, and the plan for both |
+| [13-timeline-and-players.md](13-timeline-and-players.md) | Why the Tijdlijn page only does live, why the clip player cannot seek, and how to fix both |

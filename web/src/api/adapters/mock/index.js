@@ -4,7 +4,7 @@ import { getMockSettings } from './settings.js';
 import { renderFrame, renderCameraStill } from './thumbnails.js';
 import { buildTimelineDay } from './timeline.js';
 import { CAMERAS, DEFAULT_NOTIFICATION_RULES } from './fixtures.js';
-import { normaliseEvent, normalisePage, normaliseLiveSource, encodeCursor, decodeCursor } from '@/api/contract.js';
+import { normaliseEvent, normalisePage, normaliseLiveSource, normaliseTimelineDay, encodeCursor, decodeCursor } from '@/api/contract.js';
 import { ApiError } from '@/api/errors.js';
 
 /** The one binary in the mock world; see scripts/make-sample-clip.mjs. */
@@ -183,7 +183,9 @@ export function createMockAdapter() {
         timeline: {
             async getDay(camera, date) {
                 await simulate();
-                return buildTimelineDay(camera, date, getDb().events, SAMPLE_CLIP);
+                // Through the same normaliser as the BFF adapter, so the two cannot drift
+                // apart again. They did once, and the mock was the one that looked right.
+                return normaliseTimelineDay(buildTimelineDay(camera, date, getDb().events, SAMPLE_CLIP), camera, date);
             },
         },
 
