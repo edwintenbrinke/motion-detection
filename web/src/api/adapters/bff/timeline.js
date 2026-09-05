@@ -15,7 +15,9 @@ export function createTimelineApi() {
 
             return {
                 ...day,
-                recordings: day.recordings.map((r) => ({ ...r, vod_url: absolute(r.vod_url) })),
+                // The template is a URL like any other here; {start}/{end} survive both the
+                // prefixing and, later, encodeURI -- braces are legal in a path.
+                vod: day.vod ? { ...day.vod, url_template: absolute(day.vod.url_template) } : null,
                 previews: day.previews.map((p) => ({ ...p, preview_url: absolute(p.preview_url) })),
             };
         },

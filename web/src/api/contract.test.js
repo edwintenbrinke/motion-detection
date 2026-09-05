@@ -4,6 +4,7 @@ import {
     normalisePage,
     normaliseLiveSource,
     normaliseTimelineDay,
+    timelineVodUrl,
     asEpochMs,
     isMediaStale,
     encodeCursor,
@@ -196,6 +197,28 @@ describe('asEpochMs', () => {
     });
 });
 
+describe('timelineVodUrl', () => {
+    const vod = { url_template: '/api/timeline/voordeur/vod/{start}/{end}/index.m3u8?exp=1&sig=abc', window_s: 3600 };
+
+    it('fills the window in as unix seconds, which is Frigate\'s path format', () => {
+        const url = timelineVodUrl(vod, Date.parse('2026-09-05T01:00:00Z'), Date.parse('2026-09-05T02:00:00Z'));
+        expect(url).toBe(`/api/timeline/voordeur/vod/${Date.parse('2026-09-05T01:00:00Z') / 1000}/${Date.parse('2026-09-05T02:00:00Z') / 1000}/index.m3u8?exp=1&sig=abc`);
+    });
+
+    it('rounds outwards, so the window can never ask for less than it drew', () => {
+        const url = timelineVodUrl(vod, 1_757_000_000_600, 1_757_003_600_400);
+        expect(url).toContain('/vod/1757000000/1757003601/');
+    });
+
+    it('returns a template without placeholders unchanged, which is what the mock has', () => {
+        expect(timelineVodUrl({ url_template: '/sample.mp4' }, 0, 1000)).toBe('/sample.mp4');
+    });
+
+    it('has nothing to build without a template', () => {
+        expect(timelineVodUrl(null, 0, 1000)).toBeNull();
+    });
+});
+
 describe('normaliseTimelineDay', () => {
     const seconds = (iso) => Date.parse(iso) / 1000;
 
@@ -203,9 +226,10 @@ describe('normaliseTimelineDay', () => {
         camera: 'voordeur',
         date: '2026-09-05',
         expires_at: '2026-09-05T12:10:00Z',
+        vod: { url_template: '/api/timeline/voordeur/vod/{start}/{end}/index.m3u8?exp=1&sig=abc', window_s: 3600 },
         recordings: [
-            { start: seconds('2026-09-05T03:00:00Z'), end: seconds('2026-09-05T04:00:00Z'), vod_url: '/b.m3u8' },
-            { start: seconds('2026-09-05T01:00:00Z'), end: seconds('2026-09-05T02:00:00Z'), vod_url: '/a.m3u8' },
+            { start: seconds('2026-09-05T03:00:00Z'), end: seconds('2026-09-05T04:00:00Z') },
+            { start: seconds('2026-09-05T01:00:00Z'), end: seconds('2026-09-05T02:00:00Z') },
         ],
         previews: [{ start: seconds('2026-09-05T01:00:00Z'), end: seconds('2026-09-05T02:00:00Z'), preview_url: '/p.mp4' }],
         events: [{ id: 42, start: seconds('2026-09-05T01:30:00Z'), end: null, label: 'person', severity: 'alert' }],
@@ -220,25 +244,40 @@ describe('normaliseTimelineDay', () => {
 
     it('accepts ISO too, so the app survives an API that has not been redeployed', () => {
         const day = normaliseTimelineDay({
-            recordings: [{ start: '2026-09-05T01:00:00Z', end: '2026-09-05T02:00:00Z', vod_url: '/a.m3u8' }],
+            recordings: [{ start: '2026-09-05T01:00:00Z', end: '2026-09-05T02:00:00Z' }],
         });
         expect(day.recordings[0].start_ms).toBe(Date.parse('2026-09-05T01:00:00Z'));
     });
 
     it('sorts spans by start, whatever order they arrived in', () => {
-        expect(normaliseTimelineDay(raw).recordings.map((r) => r.vod_url)).toEqual(['/a.m3u8', '/b.m3u8']);
+        expect(normaliseTimelineDay(raw).recordings.map((r) => r.start_ms)).toEqual([
+            Date.parse('2026-09-05T01:00:00Z'),
+            Date.parse('2026-09-05T03:00:00Z'),
+        ]);
     });
 
     it('drops a malformed span instead of letting NaN reach the strip', () => {
         const day = normaliseTimelineDay({
             recordings: [
-                { start: 'nonsense', end: 'nonsense', vod_url: '/bad.m3u8' },
-                { start: seconds('2026-09-05T02:00:00Z'), end: seconds('2026-09-05T01:00:00Z'), vod_url: '/backwards.m3u8' },
+                { start: 'nonsense', end: 'nonsense' },
+                { start: seconds('2026-09-05T02:00:00Z'), end: seconds('2026-09-05T01:00:00Z') },
                 { start: seconds('2026-09-05T01:00:00Z'), end: seconds('2026-09-05T02:00:00Z') },
-                { start: seconds('2026-09-05T01:00:00Z'), end: seconds('2026-09-05T02:00:00Z'), vod_url: '/good.m3u8' },
             ],
         });
-        expect(day.recordings.map((r) => r.vod_url)).toEqual(['/good.m3u8']);
+        expect(day.recordings.map((r) => r.start_ms)).toEqual([Date.parse('2026-09-05T01:00:00Z')]);
+    });
+
+    // A recording span no longer carries its own playlist: one URL per span meant one
+    // playlist for a whole day of continuous recording, which is the shape that failed in
+    // production. See docs/v2/13-timeline-and-players.md#a5.
+    it('reads the day-wide vod template, and falls back to an hour when the window is missing', () => {
+        expect(normaliseTimelineDay(raw).vod).toEqual({
+            url_template: '/api/timeline/voordeur/vod/{start}/{end}/index.m3u8?exp=1&sig=abc',
+            window_s: 3600,
+        });
+        expect(normaliseTimelineDay({ vod: { url_template: '/x.m3u8' } }).vod.window_s).toBe(3600);
+        expect(normaliseTimelineDay({ vod: { url_template: '   ' } }).vod).toBeNull();
+        expect(normaliseTimelineDay({}).vod).toBeNull();
     });
 
     it('keeps an event that has not ended, with a null end', () => {
@@ -250,6 +289,7 @@ describe('normaliseTimelineDay', () => {
             camera: 'voordeur',
             date: '2026-09-05',
             expires_at: null,
+            vod: null,
             recordings: [],
             previews: [],
             events: [],

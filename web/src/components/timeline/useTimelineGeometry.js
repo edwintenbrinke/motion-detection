@@ -118,6 +118,30 @@ export function rangeAt(ts, ranges) {
     return ranges.find((range) => ts >= range.start_ms && ts < range.end_ms) ?? null;
 }
 
+/**
+ * The slice of a recording span that one playlist should cover.
+ *
+ * A span is not a playable unit: continuous recording makes it the whole day, and a VOD
+ * playlist for a whole day is thousands of segments that Frigate has to map and manifest
+ * before the first frame arrives (docs/v2/13-timeline-and-players.md#a5). So playback asks
+ * for a window instead.
+ *
+ * The grid is anchored to the *span's own start*, not to the epoch or the hour, for two
+ * reasons: scrubbing anywhere inside a window yields the same window, so the player is not
+ * handed a new URL for every release; and the first window can never be a sliver that
+ * happens to end just after it began.
+ */
+export function vodWindow(ts, range, windowMs) {
+    const width = Math.max(1, windowMs);
+    const offset = Math.max(0, ts - range.start_ms);
+    const gridStart = range.start_ms + Math.floor(offset / width) * width;
+
+    return {
+        start_ms: gridStart,
+        end_ms: Math.min(range.end_ms, gridStart + width),
+    };
+}
+
 /** How far into a recording a timestamp is, in seconds. */
 export function offsetInRange(ts, range) {
     return Math.max(0, (ts - range.start_ms) / 1000);

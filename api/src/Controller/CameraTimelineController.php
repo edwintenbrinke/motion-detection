@@ -28,6 +28,22 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route('/api/cameras/{camera}')]
 class CameraTimelineController extends AbstractController
 {
+    /**
+     * How much wall clock one playlist may cover.
+     *
+     * A recording span is not a playable unit. Continuous recording makes the whole day one
+     * span, and Frigate builds a VOD playlist out of one entry per recording *segment* --
+     * about 360 an hour, so a day is ~8,600 of them. That mapping is around a megabyte,
+     * against Frigate's own `vod_max_mapping_response_size 1m`, and it has to be assembled
+     * and turned into a manifest before the first frame arrives. Frigate's own player never
+     * asks for more than the range it is showing.
+     *
+     * So the app is handed a template and a window size rather than one URL per span: it
+     * builds the playlist for the hour it is actually looking at.
+     * See docs/v2/13-timeline-and-players.md#a5.
+     */
+    public const VOD_WINDOW_S = 3600;
+
     public function __construct(
         private readonly FrigateClient $frigate_client,
         private readonly MediaTokenService $media_token_service,
@@ -91,7 +107,18 @@ class CameraTimelineController extends AbstractController
             'expires_at' => (new \DateTimeImmutable('@' . $token['exp']))
                 ->setTimezone(new \DateTimeZone('UTC'))
                 ->format(\DateTimeInterface::ATOM),
-            'recordings' => $this->groupRecordings($recordings, $camera, $query),
+            // A template, not a URL: {start} and {end} are filled in by the app for the
+            // window under the playhead. The signature is per camera and per hour, not per
+            // range, so every window it builds is covered by this one token.
+            'vod' => [
+                'url_template' => sprintf(
+                    '/api/timeline/%s/vod/{start}/{end}/index.m3u8?%s',
+                    rawurlencode($camera),
+                    $query,
+                ),
+                'window_s' => self::VOD_WINDOW_S,
+            ],
+            'recordings' => $this->groupRecordings($recordings),
             'previews' => $this->mapPreviews($previews, $query),
             'events' => $this->eventsBetween($camera, $start, $end),
         ]);
@@ -109,11 +136,14 @@ class CameraTimelineController extends AbstractController
      * every rounding difference as a hole would draw a day of solid recording as thousands
      * of slivers.
      *
+     * The spans say which parts of the day exist. They are deliberately *not* playable
+     * units -- see VOD_WINDOW_S for why one playlist per span was the wrong shape.
+     *
      * @param list<array<string, mixed>> $recordings
      *
-     * @return list<array{start: string, end: string, vod_url: string}>
+     * @return list<array{start: string, end: string}>
      */
-    private function groupRecordings(array $recordings, string $camera, string $query): array
+    private function groupRecordings(array $recordings): array
     {
         // Slightly more than one segment length, so a missed segment still reads as a gap.
         $gap_tolerance_s = 15;
@@ -153,13 +183,6 @@ class CameraTimelineController extends AbstractController
             fn (array $span): array => [
                 'start' => $this->iso((int) floor($span['start'])),
                 'end' => $this->iso((int) ceil($span['end'])),
-                'vod_url' => sprintf(
-                    '/api/timeline/%s/vod/%d/%d/index.m3u8?%s',
-                    rawurlencode($camera),
-                    (int) floor($span['start']),
-                    (int) ceil($span['end']),
-                    $query,
-                ),
             ],
             $spans,
         );

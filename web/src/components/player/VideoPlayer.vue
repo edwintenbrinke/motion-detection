@@ -25,6 +25,9 @@
     <div v-if="failed" class="overlay">
       <i class="pi pi-exclamation-triangle" aria-hidden="true"></i>
       <p>{{ errorText }}</p>
+      <!-- Why, when the media told us. "Opname niet beschikbaar" is the same sentence for a
+           range Frigate has nothing for, an expired link and a server that is down. -->
+      <p v-if="errorDetail" class="detail">{{ errorDetail }}</p>
       <button type="button" @click="$emit('retry')">Opnieuw</button>
     </div>
 
@@ -152,7 +155,22 @@ const props = defineProps({
   active: { type: Boolean, default: true },
 });
 
-const emit = defineEmits(['expired', 'ended', 'retry']);
+const emit = defineEmits(['expired', 'ended', 'retry', 'stream-error']);
+
+/**
+ * A fatal playlist failure, in a sentence, by the status the server actually sent.
+ *
+ * These are the four the API can produce on a VOD route (TimelineMediaController), and they
+ * mean different things to the person looking at the screen: a range with no recordings is
+ * not a broken server, and neither is an hour-old link.
+ */
+const HTTP_REASONS = {
+  400: 'Het gevraagde bereik is te groot voor één playlist',
+  403: 'De link is verlopen',
+  404: 'Geen opname in dit bereik',
+  500: 'Er ging iets mis op de server',
+  503: 'Frigate kon deze opname niet uitleveren',
+};
 
 const RATES = [0.5, 1, 1.5, 2];
 const SKIP_GUARD_S = 0.25;
@@ -174,6 +192,8 @@ const seekableEnd = ref(0);
 const busy = ref(false);
 /** Where the finger is while dragging the bar; null when it is not being dragged. */
 const scrubPosition = ref(null);
+/** Why the stream failed, when the failure said. Shown under `errorText`. */
+const errorDetail = ref(null);
 let hls = null;
 let fellBackToMp4 = false;
 
@@ -214,6 +234,7 @@ let held = false;
 // state and let onLoadedMetadata put the playhead back where it was.
 watch(() => [props.src, props.hlsSrc], () => {
   failed.value = false;
+  errorDetail.value = null;
   expiredReported = false;
   fellBackToMp4 = false;
   seekableEnd.value = 0;
@@ -288,7 +309,7 @@ async function attach() {
     streaming.value = true;
 
     hls.on(Hls.Events.ERROR, (_event, data) => {
-      if (data?.fatal) onStreamFailed();
+      if (data?.fatal) onStreamFailed(data);
     });
     return;
   }
@@ -310,16 +331,40 @@ async function attach() {
  * still exists in that case. It cannot be seeked, which is worse, and it plays, which is
  * better than a black rectangle. Fall back once; a second failure is a real failure.
  */
-function onStreamFailed() {
+function onStreamFailed(data) {
   detachHls();
   streaming.value = false;
+
+  const reason = streamReason(data);
+  // Emitted whether or not this player can recover, because the parent may have a better
+  // recovery than the mp4: the timeline can ask for a narrower window.
+  emit('stream-error', reason);
 
   if (!fellBackToMp4 && props.src) {
     fellBackToMp4 = true;
     nativeSrc.value = props.src;
     return;
   }
+
+  errorDetail.value = reason.message;
   failed.value = true;
+}
+
+/**
+ * hls.js reports the transport failure it saw; this turns it into something a person can
+ * act on. A status we have no sentence for is still worth showing as a number -- "404" tells
+ * you more than a second copy of "niet beschikbaar".
+ */
+function streamReason(data) {
+  const status = data?.response?.code ?? null;
+  const details = data?.details ?? null;
+  const timedOut = typeof details === 'string' && details.endsWith('TimeOut');
+
+  const message = HTTP_REASONS[status]
+      ?? (timedOut ? 'De server reageerde niet op tijd' : null)
+      ?? (status ? `Onverwacht antwoord van de server (${status})` : null);
+
+  return { status, details, message };
 }
 
 function detachHls() {
@@ -571,6 +616,13 @@ defineExpose({ play, pause: () => video.value?.pause() });
 .overlay i {
   font-size: 26px;
   color: var(--app-accent);
+}
+
+.overlay .detail {
+  margin-top: -4px;
+  max-width: 32ch;
+  opacity: 0.72;
+  font-size: 12px;
 }
 
 .overlay p {

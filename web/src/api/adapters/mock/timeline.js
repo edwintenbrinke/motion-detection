@@ -20,7 +20,6 @@ export function buildTimelineDay(camera, date, allEvents, sampleClip) {
             recordings.push({
                 start: new Date(start).toISOString(),
                 end: new Date(end).toISOString(),
-                vod_url: sampleClip,
             });
         }
     };
@@ -64,6 +63,10 @@ export function buildTimelineDay(camera, date, allEvents, sampleClip) {
         camera,
         date,
         expires_at: new Date(Date.now() + 600_000).toISOString(),
+        // The real BFF hands over a template with {start}/{end} in it; the mock has one file
+        // and no ranges, so the placeholders simply do not appear. That is the same contract
+        // -- "ask the day for the URL of a window" -- with a degenerate answer.
+        vod: { url_template: sampleClip, window_s: 3600 },
         recordings,
         previews,
         events,

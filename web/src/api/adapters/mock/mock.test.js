@@ -241,6 +241,10 @@ describe('mock adapter', () => {
             expect(day.recordings.length).toBe(2);
             expect(day.recordings[1].start_ms).toBeGreaterThan(day.recordings[0].end_ms);
             expect(day.previews.length).toBe(24);
+            // Playback is a window inside a span now, so the day carries the template the
+            // app builds those windows from (docs/v2/13-timeline-and-players.md#a5).
+            expect(day.vod.url_template).toBeTruthy();
+            expect(day.vod.window_s).toBeGreaterThan(0);
             expect(day.events.every((e) => toDateKey(e.start_ms) === date)).toBe(true);
         });
 

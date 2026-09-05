@@ -13,6 +13,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface;
 
 /**
  * The timeline's own media: HLS playlists for a wall-clock range, their segments, and the
@@ -42,6 +43,26 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route('/api/timeline')]
 class TimelineMediaController extends AbstractController
 {
+    /**
+     * The widest range one playlist may cover.
+     *
+     * Not a guess: nginx-vod-module refuses a mapping with too many clips, and on this
+     * deployment (2026-09-05, one recording segment every ten seconds) the boundary was
+     * measured at between 1,080 and 1,170 of them --
+     *
+     *     3h00 -> 200, 1,079 segments
+     *     3h15 -> 503, and in Frigate's error log:
+     *             media_set_parse_durations: invalid number of elements in the durations array 1170
+     *
+     * -- so about three hours. Two hours is ~720 clips: inside that with room, and still
+     * twice the window the app asks for (CameraTimelineController::VOD_WINDOW_S).
+     *
+     * The app never comes near it. What does is a client holding a URL from before windows
+     * existed, or a padded clip for a very long event -- and a 400 that says so beats a 503
+     * from two services away. See docs/v2/13-timeline-and-players.md#a5.
+     */
+    private const MAX_RANGE_S = 2 * 3600;
+
     public function __construct(
         private readonly MediaTokenService $media_token_service,
         private readonly JWTTokenManagerInterface $jwt_manager,
@@ -60,7 +81,10 @@ class TimelineMediaController extends AbstractController
         summary: 'HLS for a wall-clock range on one camera',
         responses: [
             new OA\Response(response: 200, description: 'Playlist or segment, streamed by nginx'),
+            new OA\Response(response: 400, description: 'The range is wider than one playlist may cover'),
             new OA\Response(response: 403, description: 'No valid signature and no session'),
+            new OA\Response(response: 404, description: 'Frigate has no recordings for this range'),
+            new OA\Response(response: 503, description: 'Frigate could not produce the playlist'),
         ]
     )]
     #[Security(name: null)]
@@ -75,6 +99,14 @@ class TimelineMediaController extends AbstractController
         if (!$this->allowed($camera, $request))
         {
             return $this->json(['message' => 'Invalid or expired link'], Response::HTTP_FORBIDDEN);
+        }
+
+        if ($end - $start > self::MAX_RANGE_S)
+        {
+            return $this->json(
+                ['message' => 'Bereik te groot voor één playlist'],
+                Response::HTTP_BAD_REQUEST,
+            );
         }
 
         $upstream = sprintf(
@@ -106,9 +138,19 @@ class TimelineMediaController extends AbstractController
         {
             $body = $this->frigate_client->fetchText($upstream);
         }
+        // Frigate answers 404 for a range it has no recordings for -- and also for one its
+        // VOD module choked on, because its nginx maps that module's 502 to 404. Either way
+        // the range is the problem and retrying it is pointless, which is a different thing
+        // to tell the player than "the server is having a moment".
+        catch (ClientExceptionInterface $e)
+        {
+            $this->logger->warning(sprintf('Geen playlist voor %s: %s', $upstream, $e->getMessage()));
+
+            return $this->json(['message' => 'Geen opname in dit bereik'], Response::HTTP_NOT_FOUND);
+        }
         catch (\Throwable $e)
         {
-            $this->logger->error('Playlist kon niet worden opgehaald: ' . $e->getMessage());
+            $this->logger->error(sprintf('Playlist kon niet worden opgehaald (%s): %s', $upstream, $e->getMessage()));
 
             return $this->json(['message' => 'Opname niet beschikbaar'], Response::HTTP_SERVICE_UNAVAILABLE);
         }

@@ -305,7 +305,7 @@ project. Mirrored into [HANDOFF.md](HANDOFF.md).
 | H1 | A `media { thumbnail, snapshot, clip, expires_at }` block inline on `EventOutputDTO`, all three signed with one `$now`, plus the `/media/{kind}/{id}?exp&sig` controller that verifies them. `MediaTokenService` exists and nothing calls it |
 | H2 | `GET /api/cameras` → `[{ name, display_name, width, height, retention }]` |
 | H3 | `GET /api/cameras/{cam}/live` → an ordered `rungs[]` (§4.2). WebSockets and `<img>` cannot set headers, so the token rides in the query; the WebRTC rung is the LAN go2rtc origin, not the tunnel |
-| H4 | `GET /api/cameras/{cam}/timeline?date&tz` → `{ recordings[{start,end,vod_url}], previews[{start,end,preview_url}], events[], expires_at }`, with HLS segments served under the same signed prefix as their playlist |
+| H4 | `GET /api/cameras/{cam}/timeline?date&tz` → `{ vod{url_template,window_s}, recordings[{start,end}], previews[{start,end,preview_url}], events[], expires_at }`, with HLS segments served under the same signed prefix as their playlist |
 | H5 | FCM payload: `data { event_id, camera, url }` and `notification { title, body, image }`, the image a signed snapshot URL |
 | H6 | `/.well-known/assetlinks.json` on `motion.edwintenbrinke.nl`, or App Links open the browser instead of the app |
 | H7 | `from`, `to` and `q` on `GET /api/events` — documented in 07, silently ignored by the controller |

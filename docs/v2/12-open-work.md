@@ -324,7 +324,7 @@ Also built and unused: `TimelineStrip.vue`, `TimelinePreview.vue`, `RecordingPla
 
 ```
 GET /api/cameras/{cam}/timeline?date&tz
-  -> { recordings[{start,end,vod_url}], previews[{start,end,preview_url}], events[], expires_at }
+  -> { vod{url_template,window_s}, recordings[{start,end}], previews[{start,end,preview_url}], events[], expires_at }
 ```
 
 ### What Frigate gives us — all three verified working

@@ -175,20 +175,26 @@ export function asEpochMs(value) {
  * span should cost you that span, not the whole day.
  *
  * @returns {{camera: string, date: string, expires_at: string|null,
- *            recordings: Array<{start_ms: number, end_ms: number, vod_url: string}>,
+ *            vod: {url_template: string, window_s: number}|null,
+ *            recordings: Array<{start_ms: number, end_ms: number}>,
  *            previews: Array<{start_ms: number, end_ms: number, preview_url: string}>,
  *            events: Array<{id: string, start_ms: number, end_ms: number|null, label: string|null, severity: string}>}}
  */
 export function normaliseTimelineDay(raw, camera = '', date = '') {
-    const spans = (list, urlKey) =>
+    // `urlKey` null means the span carries no URL of its own. Recordings are in that shape
+    // since the playlist stopped being a property of the span and became a function of where
+    // the playhead is (docs/v2/13-timeline-and-players.md#a5).
+    const spans = (list, urlKey = null) =>
         (Array.isArray(list) ? list : [])
             .map((item) => {
                 const start_ms = asEpochMs(item?.start ?? item?.start_ms);
                 const end_ms = asEpochMs(item?.end ?? item?.end_ms);
                 if (start_ms === null || end_ms === null || end_ms <= start_ms) return null;
-                return { start_ms, end_ms, [urlKey]: item?.[urlKey] ?? null };
+                return urlKey === null
+                    ? { start_ms, end_ms }
+                    : { start_ms, end_ms, [urlKey]: item?.[urlKey] ?? null };
             })
-            .filter((item) => item !== null && item[urlKey])
+            .filter((item) => item !== null && (urlKey === null || item[urlKey]))
             .sort((a, b) => a.start_ms - b.start_ms);
 
     const events = (Array.isArray(raw?.events) ? raw.events : [])
@@ -212,10 +218,41 @@ export function normaliseTimelineDay(raw, camera = '', date = '') {
         camera: raw?.camera ?? camera,
         date: raw?.date ?? date,
         expires_at: raw?.expires_at ?? null,
-        recordings: spans(raw?.recordings, 'vod_url'),
+        vod: normaliseVod(raw?.vod),
+        recordings: spans(raw?.recordings),
         previews: spans(raw?.previews, 'preview_url'),
         events,
     };
+}
+
+/** How wide a playlist window to ask for when the API does not say. Mirrors the BFF. */
+export const DEFAULT_VOD_WINDOW_S = 3600;
+
+function normaliseVod(raw) {
+    const template = typeof raw?.url_template === 'string' ? raw.url_template.trim() : '';
+    if (template === '') return null;
+
+    const window_s = Number(raw?.window_s);
+
+    return {
+        url_template: template,
+        window_s: Number.isFinite(window_s) && window_s > 0 ? Math.round(window_s) : DEFAULT_VOD_WINDOW_S,
+    };
+}
+
+/**
+ * The playlist URL for one window, from the day's template.
+ *
+ * Unix seconds, because that is Frigate's own path format and the reason the API hands over
+ * a template at all: the signature it carries is per camera, not per range, so the app can
+ * build every window it needs from one token. See docs/v2/13-timeline-and-players.md#a5.
+ */
+export function timelineVodUrl(vod, start_ms, end_ms) {
+    if (!vod?.url_template) return null;
+
+    return vod.url_template
+        .replace('{start}', String(Math.floor(start_ms / 1000)))
+        .replace('{end}', String(Math.ceil(end_ms / 1000)));
 }
 
 // -- Live sources ------------------------------------------------------------------------

@@ -31,18 +31,20 @@
 
       <div v-show="mode === 'recording'" class="surface">
         <VideoPlayer
-            :hls-src="currentRange?.vod_url ?? null"
-            :start-at="recordingOffset"
+            :hls-src="playback.url"
+            :start-at="playback.offset"
             :expires-at="day.expires_at"
             :active="mode === 'recording'"
             :autoplay="mode === 'recording'"
             error-text="Opname niet beschikbaar"
             @expired="reloadAndResume"
             @retry="reloadAndResume"
+            @stream-error="onStreamError"
+            @ended="onWindowEnded"
         />
       </div>
 
-      <div v-if="mode === 'recording' && !currentRange" class="gap">
+      <div v-if="mode === 'recording' && !playback.url" class="gap">
         <i class="pi pi-video-slash" aria-hidden="true"></i>
         <p>Geen opname op dit moment</p>
       </div>
@@ -93,7 +95,8 @@ import { useRouter } from 'vue-router';
 import { api } from '@/api';
 import { formatTime, formatTimeSeconds, toDateKey } from '@/lib/datetime.js';
 import { labelNl } from '@/lib/eventPresenter.js';
-import { rangeAt, offsetInRange, HOUR_MS, DAY_MS, MINUTE_MS } from '@/components/timeline/useTimelineGeometry.js';
+import { timelineVodUrl, DEFAULT_VOD_WINDOW_S } from '@/api/contract.js';
+import { rangeAt, vodWindow, HOUR_MS, DAY_MS, MINUTE_MS } from '@/components/timeline/useTimelineGeometry.js';
 import TimelineStrip from '@/components/timeline/TimelineStrip.vue';
 import TimelinePreview from '@/components/timeline/TimelinePreview.vue';
 import VideoPlayer from '@/components/player/VideoPlayer.vue';
@@ -106,7 +109,7 @@ const camera = ref('');
 const date = ref(toDateKey(Date.now()));
 const today = toDateKey(Date.now());
 
-const day = ref({ recordings: [], previews: [], events: [] });
+const day = ref({ vod: null, recordings: [], previews: [], events: [] });
 const loading = ref(false);
 const loadError = ref(null);
 
@@ -115,16 +118,42 @@ const windowMs = ref(HOUR_MS);
 /** 'live' while following now, 'scrub' during a drag, 'recording' after letting go. */
 const mode = ref('live');
 /**
- * Seconds into the current recording span. The player is prop-driven, so the position is
- * state here rather than an imperative `play(url, offset)` call -- which is what let the
- * timeline and the event page end up as one component instead of two.
+ * What the player is pointed at: one bounded window inside the span under the playhead, the
+ * offset into that window, and the span it came from.
+ *
+ * Set on release rather than computed from `centerTs`, deliberately. A computed source would
+ * hand the player a new URL on every pointermove of a drag -- A3's seek storm arriving by a
+ * different route (docs/v2/13-timeline-and-players.md#a3).
+ *
+ * The player is prop-driven, so the position is state here rather than an imperative
+ * `play(url, offset)` call -- which is what let the timeline and the event page end up as
+ * one component instead of two.
  */
-const recordingOffset = ref(0);
+const playback = ref({ url: null, offset: 0, window: null, range: null });
+/**
+ * Which width in `vodWindows` is being tried. Reset on every release; stepped once by
+ * `onStreamError`, which is the timeline's fallback for a playlist the server would not
+ * build.
+ */
+let windowAttempt = 0;
+/** The timestamp the current playback was asked for, so a retry can ask for it again. */
+let playbackTs = 0;
 
 const dayStart = computed(() => new Date(`${date.value}T00:00:00`).getTime());
 const dayEnd = computed(() => Math.min(dayStart.value + DAY_MS, Date.now()));
 
-const currentRange = computed(() => rangeAt(centerTs.value, day.value.recordings));
+/**
+ * The window widths to try, widest first: what the API asked for, then a quarter of it.
+ *
+ * A playlist is built per request out of one entry per ten-second recording segment, and
+ * the wider the range the more ways that has to fail -- Frigate caps the mapping it will
+ * assemble, and a big one is slow before it is anything else. So a fatal error is worth one
+ * narrower attempt before it is worth an error panel.
+ */
+const vodWindows = computed(() => {
+  const base = (day.value.vod?.window_s ?? DEFAULT_VOD_WINDOW_S) * 1000;
+  return [base, Math.max(MINUTE_MS, Math.round(base / 4))];
+});
 
 const zoomLabel = computed(() => {
   if (windowMs.value >= DAY_MS) return 'Dag';
@@ -151,7 +180,7 @@ async function load() {
     day.value = await api.timeline.getDay(camera.value, date.value);
   } catch (error) {
     loadError.value = error;
-    day.value = { recordings: [], previews: [], events: [] };
+    day.value = { vod: null, recordings: [], previews: [], events: [] };
   } finally {
     loading.value = false;
   }
@@ -191,11 +220,60 @@ function onScrubStart() {
 }
 
 function onScrubEnd(ts) {
-  const range = rangeAt(ts, day.value.recordings);
-  // The player follows `currentRange` and `recordingOffset`; setting them is the whole of
-  // "start playing here".
-  recordingOffset.value = range ? offsetInRange(ts, range) : 0;
+  windowAttempt = 0;
+  playAt(ts);
   mode.value = 'recording';
+}
+
+/**
+ * Point the player at the window covering `ts`. Setting `playback` is the whole of "start
+ * playing here"; there is no imperative call into the player.
+ */
+function playAt(ts) {
+  playbackTs = ts;
+
+  const range = rangeAt(ts, day.value.recordings);
+  if (!range) {
+    playback.value = { url: null, offset: 0, window: null, range: null };
+    return;
+  }
+
+  const width = vodWindows.value[windowAttempt] ?? vodWindows.value[0];
+  // Not `window`: shadowing the global in a browser app is a trap waiting for the first
+  // line that needs the real one.
+  const slice = vodWindow(ts, range, width);
+
+  playback.value = {
+    url: timelineVodUrl(day.value.vod, slice.start_ms, slice.end_ms),
+    offset: Math.max(0, (ts - slice.start_ms) / 1000),
+    window: slice,
+    range,
+  };
+}
+
+/**
+ * A dead playlist is not a dead recording, and the range is the likeliest reason for it.
+ * Try a narrower window once; only a second failure is the player's to report, and by then
+ * it has the server's own status to report it with.
+ */
+function onStreamError() {
+  if (windowAttempt + 1 >= vodWindows.value.length) return;
+
+  windowAttempt += 1;
+  playAt(playbackTs);
+}
+
+/**
+ * A window is a slice of a longer recording, so playing one out means "carry on into the
+ * next slice" rather than "the recording ended".
+ */
+function onWindowEnded() {
+  const { window: slice, range } = playback.value;
+  if (!slice || !range || slice.end_ms >= range.end_ms) return;
+
+  windowAttempt = 0;
+  centerTs.value = slice.end_ms;
+  playAt(slice.end_ms);
 }
 
 /**
@@ -208,6 +286,15 @@ async function reloadAndResume() {
   await load();
   onScrubEnd(ts);
 }
+
+// A day with different recordings is a different window; whatever was playing came from the
+// old one and its signature is stale anyway.
+watch(() => day.value, () => {
+  if (mode.value === 'recording' && playbackTs > 0) {
+    windowAttempt = 0;
+    playAt(playbackTs);
+  }
+});
 
 function goLive() {
   date.value = today;

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
     timeToX, xToTime, panCenter, zoomAround, snapWindow, ticks, tickIntervalMs,
-    rangeAt, offsetInRange, previewFraction, clampWindow, clampCenter,
+    rangeAt, offsetInRange, vodWindow, previewFraction, clampWindow, clampCenter,
     HOUR_MS, DAY_MS, MINUTE_MS,
 } from './useTimelineGeometry.js';
 
@@ -116,13 +116,13 @@ describe('timeline geometry', () => {
 
     describe('recordings', () => {
         const ranges = [
-            { start_ms: at('2026-09-03T00:00:00Z'), end_ms: at('2026-09-03T03:00:00Z'), vod_url: 'a' },
-            { start_ms: at('2026-09-03T03:20:00Z'), end_ms: at('2026-09-03T12:00:00Z'), vod_url: 'b' },
+            { start_ms: at('2026-09-03T00:00:00Z'), end_ms: at('2026-09-03T03:00:00Z') },
+            { start_ms: at('2026-09-03T03:20:00Z'), end_ms: at('2026-09-03T12:00:00Z') },
         ];
 
         it('finds the range under a timestamp', () => {
-            expect(rangeAt(Date.parse('2026-09-03T01:00:00Z'), ranges).vod_url).toBe('a');
-            expect(rangeAt(Date.parse('2026-09-03T04:00:00Z'), ranges).vod_url).toBe('b');
+            expect(rangeAt(Date.parse('2026-09-03T01:00:00Z'), ranges)).toBe(ranges[0]);
+            expect(rangeAt(Date.parse('2026-09-03T04:00:00Z'), ranges)).toBe(ranges[1]);
         });
 
         it('returns nothing inside a gap, so the UI can say there is no recording', () => {
@@ -139,6 +139,48 @@ describe('timeline geometry', () => {
 
         it('never returns a negative offset', () => {
             expect(offsetInRange(Date.parse('2026-09-02T23:00:00Z'), ranges[0])).toBe(0);
+        });
+    });
+
+    // One playlist per span meant one playlist for a whole day of continuous recording.
+    // See docs/v2/13-timeline-and-players.md#a5.
+    describe('vodWindow', () => {
+        const range = { start_ms: at('2026-09-03T00:00:00Z'), end_ms: at('2026-09-03T05:30:00Z') };
+        const HOUR = 3_600_000;
+
+        it('covers an hour of the span, aligned to the span, not to the clock', () => {
+            const window = vodWindow(at('2026-09-03T02:10:00Z'), range, HOUR);
+            expect(window.start_ms).toBe(at('2026-09-03T02:00:00Z'));
+            expect(window.end_ms).toBe(at('2026-09-03T03:00:00Z'));
+        });
+
+        it('gives the same window anywhere inside it, so a drag is not a new URL per pixel', () => {
+            const a = vodWindow(at('2026-09-03T02:00:01Z'), range, HOUR);
+            const b = vodWindow(at('2026-09-03T02:59:59Z'), range, HOUR);
+            expect(a).toEqual(b);
+        });
+
+        it('is anchored to the span, so a span starting mid-hour has no sliver first window', () => {
+            const odd = { start_ms: at('2026-09-03T00:50:00Z'), end_ms: at('2026-09-03T06:00:00Z') };
+            const window = vodWindow(at('2026-09-03T00:51:00Z'), odd, HOUR);
+            expect(window.start_ms).toBe(odd.start_ms);
+            expect(window.end_ms).toBe(at('2026-09-03T01:50:00Z'));
+        });
+
+        it('never runs past the end of the recording', () => {
+            const window = vodWindow(at('2026-09-03T05:20:00Z'), range, HOUR);
+            expect(window.end_ms).toBe(range.end_ms);
+        });
+
+        it('clamps a timestamp before the span to its first window', () => {
+            const window = vodWindow(at('2026-09-02T20:00:00Z'), range, HOUR);
+            expect(window.start_ms).toBe(range.start_ms);
+        });
+
+        it('narrows to whatever width it is given, which is the retry after a fatal error', () => {
+            const window = vodWindow(at('2026-09-03T02:10:00Z'), range, 15 * 60_000);
+            expect(window.start_ms).toBe(at('2026-09-03T02:00:00Z'));
+            expect(window.end_ms).toBe(at('2026-09-03T02:15:00Z'));
         });
     });
 

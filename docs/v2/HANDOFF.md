@@ -129,7 +129,7 @@ against** and the API does not serve yet. None of it blocks the app; all of it b
 | H1 | `media { thumbnail, snapshot, clip, expires_at }` inline on `EventOutputDTO`, all three signed with the same `$now`, plus the `/media/{kind}/{id}?exp&sig` controller that verifies them. `MediaTokenService` is written and **nothing calls it** | Feed thumbnails, detail player, notification images |
 | H2 | `GET /api/cameras` → `[{ name, display_name, width, height, retention }]` | Camera tabs, zone editor, storage screen |
 | H3 | `GET /api/cameras/{cam}/live` → ordered `rungs[]` (webrtc/mse/hls/snapshot). Token in the query string, not a header — a WebSocket and an `<img>` cannot set one. WebRTC rung points at the LAN go2rtc service, not the tunnel | The live fallback ladder |
-| H4 | `GET /api/cameras/{cam}/timeline?date&tz` → `{recordings[{start,end,vod_url}], previews[{start,end,preview_url}], events[], expires_at}`. HLS segments must be served under the same signed prefix as their playlist | The timeline scrubber |
+| H4 | `GET /api/cameras/{cam}/timeline?date&tz` → `{vod{url_template,window_s}, recordings[{start,end}], previews[{start,end,preview_url}], events[], expires_at}`. HLS segments must be served under the same signed prefix as their playlist | The timeline scrubber |
 | H5 | FCM payload shape: `data {event_id, camera, url}` + `notification {title, body, image}` with a signed snapshot URL | Notification tap → deep link |
 | H6 | `/.well-known/assetlinks.json` on `motion.edwintenbrinke.nl` | App Links; without it a tapped link opens the browser |
 | H7 | `from`, `to`, `q` on `GET /api/events` — in the docs, ignored by `EventController::list()` | Date-range filter and the search box |

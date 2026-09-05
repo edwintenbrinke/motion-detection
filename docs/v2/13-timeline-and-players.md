@@ -20,6 +20,7 @@ break is on the other side of the wire in one case and underneath it in the othe
 | A2 | HLS segment URLs lose the signature, and the cookie fallback cannot work cross-origin | `TimelineMediaController` | Playback 403s even after A1 |
 | A3 | Every drag remounts the preview and every pointermove issues a seek that the previous one is still doing | `TimelinePreview.vue` | Black frames, frozen scrub |
 | A4 | Smaller: dead `scrub` emit, hard-coded camera, native `<video controls>` in one player and a custom skin in the other | `TimelineView.vue`, `RecordingPlayer.vue` | Polish, after A1–A3 |
+| A5 | One `vod_url` per span is one playlist for a whole day, and nginx-vod-module refuses a media set of ~8,600 clips outright | `CameraTimelineController` → Frigate's VOD module | **Found in production after A1–A4 shipped, cause measured.** Windows, not spans |
 | B1 | Frigate builds `clip.mp4` on the fly: no `Content-Length`, no `Range`, no duration. A browser cannot seek in it | `FrigateClient::eventMediaPath()` + Frigate | **The whole player.** Not fixable in the frontend |
 | B2 | `seekTo()` writes `currentTime` without ever consulting `video.seekable` | `VideoPlayer.vue` | Why it fails silently instead of visibly |
 | B3 | The scrub bar's `max` is `knownDuration`, which is longer than anything the media can seek to | `VideoPlayer.vue` | The bar lies about its own range |
@@ -49,6 +50,12 @@ upstream endpoint.** Everything else is downstream of those two.
 >
 > **Nothing here has run against the real Frigate or the real API.** Everything below that
 > says "verified" means verified against the mock adapter in a browser, or by unit test.
+>
+> **Update (2026-09-05, deployed as api v0.3.7 / web v0.3.2).** It has now met the real
+> Frigate, and A1–A4 hold: the strip draws, the previews scrub. Playback does not — every
+> release of the drag ends in the error panel. The cause and the fix are **[A5](#a5-one-playlist-per-span-is-one-playlist-for-a-whole-day)**:
+> a span is not a playable unit, and one playlist for a whole day is not something Frigate
+> will build — measured from inside the cluster, down to the line in its error log.
 
 ---
 
@@ -408,8 +415,10 @@ Two more while in this file:
   the same component with different sources, so the timeline now renders `VideoPlayer` and
   the file is deleted.
 
-  The merge is what turned `play(url, offset)` into props: the timeline holds
-  `currentRange.vod_url` and a `recordingOffset`, and setting them *is* "start playing here".
+  The merge is what turned `play(url, offset)` into props: the timeline holds the source and
+  the offset, and setting them *is* "start playing here". (It held `currentRange.vod_url`
+  when this was written; [A5](#a5-one-playlist-per-span-is-one-playlist-for-a-whole-day)
+  replaced that with a window built on release — same shape, bounded range.)
   Two things fell out of that and both were caught by running it, not by reading it:
 
   - **`startAt` only applied on `loadedmetadata`.** The timeline's spans are hours long, so
@@ -425,6 +434,139 @@ Two more while in this file:
 - **Still open: `mode` and `date` are two pieces of state that can disagree.** A single
   `viewState` (`live | scrub | recording` + the timestamp) would remove the class of bug
   where they do. Not attempted.
+
+### A5. One playlist per span is one playlist for a whole day
+
+**Symptom, from the deployed app (2026-09-05):** the strip draws, the previews scrub, and
+letting go of the drag gives the error panel — "Opname niet beschikbaar", with an *Opnieuw*
+button that does the same thing again. Every time, on any time of day.
+
+**Measured against the running system on 2026-09-05**, from inside the `motion-api` pod, so
+the numbers below are this deployment's rather than an estimate. The first draft of this
+section blamed the mapping size and the timeout; both were wrong, and the measurement says
+what is actually happening.
+
+What is different about the VOD path is not authentication and not the proxy — the preview
+files prove both of those work, since they take the same signature through the same
+`X-Accel-Redirect` to the same host. What is different is **how much we ask for**.
+
+`groupRecordings()` merges recording segments into spans with a 15-second tolerance. Under
+continuous recording that makes the whole day one span, and until now every span carried one
+`vod_url` covering all of it. Asking Frigate for that, from inside the cluster:
+
+| Request | Result |
+|---|---|
+| `/api/vod/voordeur/start/<midnight>/end/<now>` (the mapping) | **200**, 851 KB, 140 ms |
+| `/vod/voordeur/start/<midnight>/end/<now>/index.m3u8` (the playlist) | **503**, 197 bytes, 77 ms |
+| `/api/vod/…` for one hour | 200, 42 KB, 31 ms |
+| `/vod/…/index.m3u8` for one hour | **200**, 10.8 KB, 356 segments, 31 ms |
+
+So it is neither slow nor over the mapping cap — 851 KB fits inside
+`vod_max_mapping_response_size 1m`, and every one of these answered in well under a second.
+It is a **count**. Frigate's own error log names it:
+
+```
+media_set_parse_durations: invalid number of elements in the durations array 1170
+```
+
+`nginx-vod-module` will not build a media set with more clips than its `MAX_CLIPS`, and a
+recording segment is a clip. Walking the range in fifteen-minute steps puts the boundary
+between 1,080 and 1,170 of them, which at one segment per ten seconds is **about three
+hours**:
+
+```
+ 1h  200  356 segments      3h00  200  1,079 segments
+ 2h  200  719 segments      3h15  503
+ 3h  200  1,079 segments    4h+   503
+```
+
+A day is ~8,600 segments, so a day-long span was never going to render — it failed in 77 ms,
+every time, for every time of day. hls.js sees a fatal manifest error, and the timeline gave
+`VideoPlayer` no `src` to fall back to, so it shows the panel.
+
+Two corrections to the first draft of this section, both worth keeping visible: the mapping
+size was *not* the problem (it fits, and Frigate's endpoint is fast), and the failure arrives
+as a **503**, not as the 404 that `error_page 502 =404` would have produced — the module
+answers 503 directly.
+
+**Frigate's own player never does this.** `DynamicVideoPlayer.tsx` builds
+`vod/${camera}/start/${after}/end/${before}/master.m3u8` from the range it is currently
+displaying, not from a span.
+
+#### Fix — a template and a window, not a URL per span
+
+A recording span says *what exists*. It is not a playable unit, and treating it as one is the
+bug. So the day now carries the playlist as a **template**:
+
+```json
+"vod": {
+  "url_template": "/api/timeline/voordeur/vod/{start}/{end}/index.m3u8?exp=…&sig=…",
+  "window_s": 3600
+}
+```
+
+and `recordings[]` carries only `{start, end}`. The app fills the template in for the window
+under the playhead (`vodWindow()` in `useTimelineGeometry.js`). This works because **the
+signature is per camera, not per range** — `TimelineMediaController::allowed()` verifies
+`('timeline', camera, exp, sig)` and nothing else — so one token covers every window the app
+builds from it.
+
+Four details, each a decision:
+
+- **The window grid is anchored to the span's start**, not to the epoch or the clock hour.
+  Scrubbing anywhere inside a window then yields the *same* window, so the player is not
+  handed a new URL per release; and a span beginning at 00:50 gets a full first window rather
+  than a ten-minute sliver.
+- **The URL is set on release, not computed from `centerTs`.** A computed source would rebuild
+  it on every pointermove of a drag — A3's seek storm arriving by a different route.
+- **A fatal error retries once at a quarter of the width** before the panel appears. If the
+  range is the problem, a narrower range is the fix, and the app can find that out faster
+  than a person can.
+- **`MAX_RANGE_S` is two hours**, set from the measurement above rather than from a round
+  number: ~720 clips, inside a limit that bites at ~1,100.
+- **Playing a window out continues into the next one** (`@ended` → next window), so an hour
+  boundary is not the end of the recording.
+
+#### And the failure says what it was
+
+`Opname niet beschikbaar` was the same sentence for a range with no recordings, an expired
+link, and a server that was down. Now:
+
+- `TimelineMediaController` separates them: **404** `Geen opname in dit bereik` when Frigate
+  says it has nothing for the range (which includes the 502-mapped-to-404 case above), **503**
+  `Opname niet beschikbaar` for anything else, and **400** `Bereik te groot voor één playlist`
+  for a range wider than `MAX_RANGE_S` (4 hours) — a backstop against an old or hand-built
+  URL spending 25 seconds inside Frigate before failing.
+- `VideoPlayer` reads the status off the fatal hls.js error and prints a second line under
+  the headline. A status with no sentence still shows its number, which beats a second copy
+  of "niet beschikbaar".
+- `fetchText()`'s timeout went from 10 s to 25 s. The measurement says it was never the
+  cause here — nothing took longer than 150 ms — but ten seconds for a file that has to be
+  built from a database query first is a thin margin on a colder cache than this one.
+
+#### What this does not do
+
+It does not make a *long* recording seekable end to end in one go: seeking past the window
+boundary is a new playlist, and the player does not prefetch the neighbouring window. That is
+fine for "what happened at 03:12" and it is not fine for "scrub through the night", which
+would want a bounded sliding window around the playhead. Left undone deliberately.
+
+#### How this was measured, and how to measure it again
+
+No login needed — Frigate is one hop from the API pod, which is the only place that can
+reach it:
+
+```bash
+kubectl -n motion exec deploy/motion-api -- php -r '$b=@file_get_contents("http://frigate.motion.svc.cluster.local:5000/vod/voordeur/start/'"$START"'/end/'"$END"'/index.m3u8"); echo $http_response_header[0], " ", substr_count((string) $b, "#EXTINF"), " segments\n";'
+```
+
+and the reason for a refusal is in Frigate's own log rather than in the response:
+
+```bash
+kubectl -n motion logs deploy/frigate --tail=200 | grep media_set_parse_durations
+```
+
+---
 
 ### Bundle or own code, for the strip?
 

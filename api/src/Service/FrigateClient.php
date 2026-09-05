@@ -420,10 +420,16 @@ class FrigateClient
      * has to be rewritten before it is useful -- it names its segments relatively, and a
      * relative URL drops the query string that authenticated the playlist.
      * See docs/v2/13-timeline-and-players.md#a2.
+     *
+     * The default timeout is generous for "a few kilobytes of text" because the text does
+     * not exist yet when we ask for it: nginx-vod-module builds the playlist per request
+     * from a mapping Frigate assembles out of one database row per recording segment. At
+     * ten seconds a perfectly healthy hour could time out and arrive as "Opname niet
+     * beschikbaar" (docs/v2/13-timeline-and-players.md#a5).
      */
-    public function fetchText(string $path): string
+    public function fetchText(string $path, int $timeout = 25): string
     {
-        $response = $this->http_client->request('GET', $this->baseUrl() . $path, ['timeout' => 10]);
+        $response = $this->http_client->request('GET', $this->baseUrl() . $path, ['timeout' => $timeout]);
 
         return $response->getContent();
     }
