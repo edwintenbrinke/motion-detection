@@ -65,6 +65,15 @@ returning a partial list. Verified against the running Frigate at three page siz
 100 both return the same 1,062 ids in 3 and 11 pages; 25 hits the page cap and reports it
 instead of quietly returning 961.
 
+And verified end to end, because "0 removed" is what a working reconcile and a dead one both
+print when nothing is stale: a row Frigate has never heard of, written straight into the
+window, was gone within one minute —
+
+```
+weg bij Frigate, lokaal verwijderd: reconcile-probe-2
+[OK] Frigate sync: 1 new, 99 updated, 1 removed, 100 seen.
+```
+
 ## One thing the fixes revealed
 
 With no zones and no masks, Frigate tracks a parked car as a **single event lasting two and
