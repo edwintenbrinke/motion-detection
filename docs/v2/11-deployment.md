@@ -118,6 +118,10 @@ bridge lands it takes over the live path and this stays useful as a **reconciler
 drops messages when nobody is listening, and a system that can only learn about events in
 real time can never catch up.
 
+Deletions are reconciled from a second, paged request for the window's ids alone
+(`eventIdsBetween()`). Reusing the mirror's own capped response meant the cleanup was
+skipped on every run — see [12-open-work.md](12-open-work.md#what-was-actually-wrong).
+
 ## Testing it
 
 The browser half cannot be checked with curl, and it is where the interesting failures live.

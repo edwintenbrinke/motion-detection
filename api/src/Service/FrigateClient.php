@@ -140,19 +140,84 @@ class FrigateClient
      * deletions: the sync only ever inserted and updated, so anything removed upstream
      * lived on in the feed forever, pointing at media that 404s.
      *
+     * **Paged, because a truncated answer here deletes things.** The caller removes local
+     * events that are missing from this list, so "the first 500 of them" is not a list it
+     * can use -- and a single request is exactly that as soon as a week holds more events
+     * than the page size. Frigate has no offset parameter, so this walks the window on
+     * `after`, oldest first. When it cannot finish it throws rather than returning what it
+     * has: an incomplete list is not a smaller truth, it is a wrong one.
+     *
      * @return list<string>
+     *
+     * @throws \RuntimeException when the window cannot be walked to the end
      */
     public function eventIdsBetween(int $after, int $before): array
     {
-        $response = $this->http_client->request('GET', $this->baseUrl() . '/api/events', [
-            'query' => ['after' => $after, 'before' => $before, 'limit' => 500, 'include_thumbnails' => 0],
-            'timeout' => 15,
-        ]);
+        $page_size = 500;
+        // 20,000 events in one window. Past that something is wrong upstream, and guessing
+        // is worse than saying so: the caller deletes on the strength of this list.
+        $max_pages = 40;
 
-        return array_values(array_filter(array_map(
-            static fn (array $event): string => (string) ($event['id'] ?? ''),
-            $response->toArray(),
-        )));
+        // `after` is a strict `>` in Frigate, so start a hair below the window to keep an
+        // event sitting exactly on the boundary.
+        $cursor = $after - 0.001;
+        $ids = [];
+
+        for ($page = 0; $page < $max_pages; ++$page)
+        {
+            $response = $this->http_client->request('GET', $this->baseUrl() . '/api/events', [
+                'query' => [
+                    'after' => $cursor,
+                    'before' => $before,
+                    'limit' => $page_size,
+                    'include_thumbnails' => 0,
+                    // Oldest first, so the cursor walks forward. The default is newest
+                    // first, which cannot be paged through with `after`.
+                    'sort' => 'date_asc',
+                ],
+                'timeout' => 15,
+            ]);
+
+            $events = $response->toArray();
+            $newest = $cursor;
+
+            foreach ($events as $event)
+            {
+                $id = (string) ($event['id'] ?? '');
+                if ($id !== '')
+                {
+                    $ids[$id] = true;
+                }
+
+                $start = (float) ($event['start_time'] ?? $cursor);
+                $newest = max($newest, $start);
+            }
+
+            if (count($events) < $page_size)
+            {
+                return array_keys($ids);
+            }
+
+            // Step back a millisecond so events sharing the last timestamp are not skipped
+            // by the strict `>`. Ids are a set, so seeing one twice costs nothing -- and
+            // skipping one would read as "deleted upstream" and remove it here.
+            $next = $newest - 0.001;
+
+            if ($next <= $cursor)
+            {
+                throw new \RuntimeException(sprintf(
+                    'Frigate gaf %d events met dezelfde starttijd; het venster is niet doorloopbaar.',
+                    $page_size,
+                ));
+            }
+
+            $cursor = $next;
+        }
+
+        throw new \RuntimeException(sprintf(
+            'Meer dan %d events in dit venster; de lijst is onvolledig.',
+            $max_pages * $page_size,
+        ));
     }
 
     /**

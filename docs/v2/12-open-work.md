@@ -51,6 +51,20 @@ And one that was mine twice over: the reconcile window. Bounding a deletion chec
 span of the events that came back sounds safe and is exactly wrong — an event deleted
 *before* the oldest survivor is never in range, which is the one case the check exists for.
 
+**A third time, found in production on 2026-09-05.** The fix for that put a guard in front
+of the reconcile — skip it when the response came back at the `--limit`, because deleting on
+a truncated list removes events that exist. The guard is right and it could never lift: the
+seven-day window holds **1,062 events** on this one camera, so every run since it shipped
+logged `Venster leverde 100 events op de limiet van 100; opruimen overgeslagen` and nothing
+was ever cleaned up. A guard whose condition is permanently true is not a guard, it is an
+off switch with a comment.
+
+The reconcile now asks its own question — `FrigateClient::eventIdsBetween()`, ids only,
+paged on `after` with `sort=date_asc` because Frigate has no offset — and throws rather than
+returning a partial list. Verified against the running Frigate at three page sizes: 500 and
+100 both return the same 1,062 ids in 3 and 11 pages; 25 hits the page cap and reports it
+instead of quietly returning 961.
+
 ## One thing the fixes revealed
 
 With no zones and no masks, Frigate tracks a parked car as a **single event lasting two and

@@ -28,6 +28,11 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  *
  * Upserts on Frigate's own event id, so running it twice is a no-op and a re-run after an
  * outage backfills rather than duplicates.
+ *
+ * Two different questions, so two different requests: the mirror wants the most recent
+ * `--limit` events in full, and the reconcile wants *every* id in the window and nothing
+ * else. Answering the second question with the first one's response is what left deletions
+ * permanently skipped -- see reconcileDeletions().
  */
 #[AsCommand(name: 'app:frigate:sync-events', description: 'Mirror recent Frigate events into the app database')]
 class SyncFrigateEventsCommand extends Command
@@ -59,7 +64,11 @@ class SyncFrigateEventsCommand extends Command
         // deleted upstream simply falls off the end of that list and survives forever. A
         // window has edges, and everything inside it can be compared.
         $window_days = max(1, (int) $input->getOption('window-days'));
-        $window_start = time() - ($window_days * 86400);
+        // One `now` for the whole run: the reconcile compares an upstream list against the
+        // local rows in the same window, and two clocks a few seconds apart would put an
+        // event that arrived in between on one side only.
+        $window_end = time();
+        $window_start = $window_end - ($window_days * 86400);
 
         if ($input->getOption('since') !== null)
         {
@@ -144,7 +153,7 @@ class SyncFrigateEventsCommand extends Command
 
         $this->entity_manager->flush();
 
-        $removed = $this->reconcileDeletions($events, $window_start, $limit, $io);
+        $removed = $this->reconcileDeletions($window_start, $window_end, $io);
 
         $io->success(sprintf(
             'Frigate sync: %d new, %d updated, %d removed, %d seen.',
@@ -164,37 +173,43 @@ class SyncFrigateEventsCommand extends Command
      * deleted upstream -- by the app, by Frigate's own UI, or by retention -- stays in the
      * feed forever with media that answers 404.
      *
-     * Two guards, and the first one was originally wrong in an instructive way. Bounding
-     * the comparison to the span of the events that came back sounds safe, and means an
-     * event deleted *before* the oldest survivor is never in range: it falls off the end of
-     * the list and lives forever. The window has to be the one we asked for, not the one we
-     * happened to get.
+     * The comparison is bounded by the window we *asked for*, not by the span of what came
+     * back. Bounding it to the latter sounds safe and is not: an event deleted before the
+     * oldest survivor is then never in range, so it falls off the end of the list and lives
+     * forever.
      *
-     * The second guard is the limit. A window that returned exactly `limit` events was
-     * truncated, so its older half is unaccounted for -- reconciling then would delete
-     * events that exist. Skip, and let a later run with a smaller window catch up.
-     *
-     * @param list<array<string, mixed>> $events
+     * **The upstream side is fetched separately, and paged.** It used to reuse the mirror's
+     * own response, which is capped at `--limit`, with a guard that skipped the whole
+     * reconcile whenever that cap was hit. The guard was right -- deleting on a truncated
+     * list removes events that exist -- but it could never lift: seven days holds more than
+     * a hundred events on any camera pointed at a street, so `100 of 100` was the answer on
+     * every single run and nothing was ever cleaned up. `eventIdsBetween()` walks the whole
+     * window instead and throws rather than returning a partial list, so the guard is now
+     * about a failure rather than about the ordinary case.
      */
-    private function reconcileDeletions(array $events, int $window_start, int $limit, SymfonyStyle $io): int
+    private function reconcileDeletions(int $window_start, int $window_end, SymfonyStyle $io): int
     {
-        if (count($events) >= $limit)
+        try
         {
-            $io->warning(sprintf(
-                'Venster leverde %d events op de limiet van %d; opruimen overgeslagen om te voorkomen dat afgekapte events verdwijnen.',
-                count($events),
-                $limit,
-            ));
+            $seen = $this->frigate_client->eventIdsBetween($window_start, $window_end);
+        }
+        catch (\Throwable $e)
+        {
+            $io->warning('Opruimen overgeslagen, de lijst van Frigate is onvolledig: ' . $e->getMessage());
 
             return 0;
         }
 
         $from = (new \DateTimeImmutable('@' . $window_start))->setTimezone(new \DateTimeZone('UTC'));
-        $seen = array_column($events, 'id');
+        // The upper bound is the other half of "a window we can be sure of": an event that
+        // started after that list was fetched is not missing from it, it is younger than it.
+        $to = (new \DateTimeImmutable('@' . $window_end))->setTimezone(new \DateTimeZone('UTC'));
 
         $query = $this->event_repository->createQueryBuilder('e')
             ->where('e.started_at >= :from')
-            ->setParameter('from', $from);
+            ->andWhere('e.started_at < :to')
+            ->setParameter('from', $from)
+            ->setParameter('to', $to);
 
         // NOT IN () is a syntax error, and an empty upstream window is exactly the case
         // where every local event in it should go.
