@@ -137,6 +137,42 @@ docker run --rm -e MOTION_USER=… -e MOTION_PASS=… mcr.microsoft.com/playwrig
 > `DEMUXER_ERROR_NO_SUPPORTED_STREAMS` and both the clip player and the live view look
 > broken when they are not. That cost a round of chasing a bug that was in the test.
 
+## Paused (since 2026-09-27)
+
+**The whole motion namespace is switched off**, because continuous recording kept the disk it
+writes to — `/mnt/external4` on edwin-server, a Seagate Exos 12 TB (`/dev/sdc`) — busy and
+audible in the living room. Nothing was deleted: recordings, the database and Frigate's config
+are all still on their volumes.
+
+**This state lives in the cluster, not in git.** Git still says one replica of everything; the
+cluster says zero, and Flux leaves it alone because the four HelmReleases are suspended. It
+survives a forced `flux reconcile` — checked — but anyone reading the manifests alone will
+not see it.
+
+What was done:
+
+```bash
+flux -n motion suspend helmrelease frigate motion-api motion-web motion-mysql
+kubectl -n motion patch cronjob motion-api-sync-events --type merge -p '{"spec":{"suspend":true}}'
+kubectl -n motion scale deployment frigate motion-api motion-web motion-mysql --replicas=0
+```
+
+Turning it back on — all three steps are needed. The HelmReleases have no drift detection,
+so `flux resume` on its own leaves the deployments at zero:
+
+```bash
+cd ~/Programming/homelab-cluster && export KUBECONFIG=$PWD/kubeconfig
+kubectl -n motion scale deployment motion-mysql frigate motion-api motion-web --replicas=1
+kubectl -n motion patch cronjob motion-api-sync-events --type merge -p '{"spec":{"suspend":false}}'
+flux -n motion resume helmrelease motion-mysql frigate motion-api motion-web
+```
+
+Measured on the disk before and after: **~45 MB/min → ~1.2 MB/min**, and nothing under
+`/motion` changes any more. What still writes is not this project: MinIO under
+`/mnt/external4/minio-backups`, archiving space-empire-prod's Postgres WAL and doing its own
+housekeeping — small writes, but often enough that the disk keeps seeking and will not spin
+down.
+
 ## Running it
 
 Images are built on `edwin-server` (amd64, native — the Mac is arm64) and pushed to GHCR
