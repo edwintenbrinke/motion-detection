@@ -12,7 +12,7 @@
 # Resolved on php:8.4, not on the `composer:2` image. That image ships PHP 8.5, and this
 # lockfile pins lcobucci/clock at ~8.4 -- so composer refuses the lock file rather than
 # installing something subtly different from what runs in production.
-FROM php:8.4-cli-bookworm AS vendor
+FROM php:8.4.27-cli-bookworm AS vendor
 RUN apt-get update && apt-get install -y --no-install-recommends git unzip libzip-dev libicu-dev \
     && docker-php-ext-install -j"$(nproc)" zip intl \
     && rm -rf /var/lib/apt/lists/*
@@ -24,7 +24,7 @@ COPY api/composer.json api/composer.lock api/symfony.lock ./
 RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist --no-interaction
 
 # ---- runtime ----------------------------------------------------------------------------
-FROM php:8.4-fpm-bookworm AS runtime
+FROM php:8.4.27-fpm-bookworm AS runtime
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         nginx gettext-base libzip-dev libicu-dev unzip \
@@ -42,6 +42,7 @@ RUN { \
         echo 'realpath_cache_ttl=600'; \
         echo 'expose_php=Off'; \
         echo 'memory_limit=256M'; \
+        echo 'session.upload_progress.enabled=0'; \
     } > /usr/local/etc/php/conf.d/zz-motion.ini
 
 # php-fpm on loopback; logs to the container's stderr so `kubectl logs` shows something.

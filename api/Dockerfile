@@ -1,5 +1,5 @@
 # Use the official PHP 8.4 FPM image
-FROM php:8.4-fpm
+FROM php:8.4.27-fpm
 
 # Set the working directory in the container
 WORKDIR /var/www/symfony
